@@ -1,0 +1,9 @@
+{
+  "approved_file": "DECISION_RULES.md",
+  "reason": "Describe exactly why this single protected file must change and what will be changed.",
+  "approved_by": "human approver name or identifier",
+  "approved_at": "2026-01-01T00:00:00+00:00",
+  "expires_at": "2026-01-01T01:00:00+00:00",
+  "expected_pre_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "used": false
+}

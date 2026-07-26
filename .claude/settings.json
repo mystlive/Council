@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "hooks": {
+    "SessionStart": [{"matcher": "startup|resume|clear|compact|fork", "hooks": [{"type": "command", "command": "python \"$CLAUDE_PROJECT_DIR/hooks/validate.py\" pre-run"}]}],
+    "PreToolUse": [{"matcher": "Write|Edit|MultiEdit|NotebookEdit|Bash", "hooks": [{"type": "command", "command": "python \"$CLAUDE_PROJECT_DIR/hooks/validate.py\" pre-tool-use"}]}],
+    "PostToolUse": [{"matcher": "Write|Edit|MultiEdit|NotebookEdit|Bash", "hooks": [{"type": "command", "command": "python \"$CLAUDE_PROJECT_DIR/hooks/validate.py\" post-tool-use"}]}],
+    "Stop": [{"matcher": "", "hooks": [{"type": "command", "command": "python \"$CLAUDE_PROJECT_DIR/hooks/validate.py\" pre-decision"}]}]
+  }
+}

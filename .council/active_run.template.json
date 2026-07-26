@@ -1,0 +1,24 @@
+{
+  "issue_id": "ISSUE-YYYY-NNNN",
+  "run_id": "RUN-YYYYMMDD-NNNN",
+  "attempt": 1,
+  "research_mode": "NONE",
+  "status": "RUNNING",
+  "current_stage": "issue-intake",
+  "next_action": "CONTINUE",
+  "content_audit_required": false,
+  "deliberation_budget": {
+    "max_research_revisions": 2,
+    "max_recritiques": 2,
+    "max_audit_revisions": 2
+  },
+  "counters": {
+    "research_revisions": 0,
+    "recritiques": 0,
+    "audit_revisions": 0
+  },
+  "outputs": {
+    "issue_intake": ""
+  },
+  "escalation": null
+}

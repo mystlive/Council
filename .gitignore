@@ -1,0 +1,21 @@
+# secrets
+.env
+.env.*
+*.pem
+*.key
+
+# private evidence and runs
+evidence/private/
+runs/private/
+
+# caches
+cache/
+__pycache__/
+
+evidence/private/
+runs/private/
+.council/active_run.json
+.council/maintenance_approval.json
+.council/maintenance_log.json
+__pycache__/
+*.pyc
