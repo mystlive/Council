@@ -1,5 +1,7 @@
 # Council
 
+[English](README.en.md)
+
 ## 概要
 
 Claude Code上で、調査・反証・追加調査・監査・条件付き結論までを自律進行させる、実験的なAI評議会フレームワーク。
