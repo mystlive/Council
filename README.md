@@ -2,6 +2,10 @@
 
 [English](README.en.md)
 
+<p align="center">
+  <img src="docs/assets/social-preview.png" alt="Council — Auditable Multi-Agent Deliberation" width="100%">
+</p>
+
 ## 概要
 
 Claude Code上で、調査・反証・追加調査・監査・条件付き結論までを自律進行させる、実験的なAI評議会フレームワーク。
@@ -96,6 +100,95 @@ Councilの中心は、「複数AIを会話させること」ではなく、「�
 
 各中間工程の終了後に人間へ次工程の許可を求めない。UNKNOWN、反対意見、証拠競合は、再調査または条件付き結論として処理する。content-auditがREVISEまたはBLOCKのまま、RUNをCOMPLETED・CONDITIONAL_COMPLETION・DEGRADED_COMPLETIONとして終了することはできない（`hooks/validate.py`のpre-decisionが機械的にBLOCKする）。修正後は`content-auditor`による再監査を要し、再監査予算（`deliberation_budget.max_audit_revisions`）を使い切った場合に限り`BOUNDED_COMPLETION`として終了できる。
 
+### 工程フロー図
+
+```mermaid
+flowchart TD
+    Start(["ユーザー依頼"]) --> Intake["issue-intake<br/>ISSUE-ID発行・議題整理・重複確認"]
+    Intake --> Chair["chair-review (主査 chair)<br/>論点分解・調査区分判定<br/>research_mode: NONE / LOCAL / WEB"]
+    Chair -->|research_mode = LOCAL または WEB| Research["research (調査役 researcher)<br/>一次資料優先・出典/取得日/版を記録"]
+    Chair -->|research_mode = NONE| Critic
+    Research --> Critic["devil-advocate (反対役 critic)<br/>ユーザー前提・主査案・調査結果への反証<br/>代替案(問題設定自体を変える案を含む)・最悪ケース"]
+    Critic --> Judge{"council-orchestrator<br/>追加調査の要否判定<br/>(結論影響度・取得可能性・審議予算)"}
+    Judge -->|要・予算内| ResearchRev["research-revision<br/>追加調査"]
+    ResearchRev --> CriticRev["devil-advocate-revision<br/>再反証(必要時)"]
+    CriticRev --> Judge
+    Judge -->|不要 / 予算到達| Secretary["secretary (書記)<br/>一致点・対立点・未確認事項を整理<br/>決定権を持たない議事録案を作成"]
+    Secretary --> Formal{"formal-validation<br/>形式検査<br/>(ID形式・必須項目・JSON Schema)"}
+    Formal -->|FAIL / BLOCK| Secretary
+    Formal -->|PASS / PASS_WITH_WARNINGS| AuditGate{"content-audit<br/>発動条件に該当するか<br/>(法務/契約/安全/実装変更/根拠競合/<br/>反対役の重大リスク提示/人間の監査要求)"}
+    AuditGate -->|非該当| Synthesis
+    AuditGate -->|該当| Audit["content-audit (content-auditor)<br/>独立コンテキストでの意味監査<br/>根拠支持・断定・迎合・逸脱を確認"]
+    Audit -->|REVISE / BLOCK かつ 監査予算内| FixStage["指摘対象工程を修正<br/>(secretary 等)"]
+    FixStage --> Audit
+    Audit -->|PASS / PASS_WITH_WARNINGS| Synthesis["final-synthesis<br/>評議会としての第一推奨・採用条件・<br/>代替案・非推奨理由・残存UNKNOWNを生成"]
+    Audit -->|REVISE / BLOCK かつ 監査予算枯渇| Synthesis
+    Synthesis --> Human(["人間へ提示<br/>推奨・採用条件・代替案・反対意見・<br/>残存UNKNOWN・結論反転条件"])
+    Human -->|正式採用/保留/否定を明示| Memory["approved-memory-update<br/>records/adopted・pending・rejectedへ反映"]
+    Human -->|差し戻し等| Revisit(["対象工程へ再依頼"])
+    Memory --> Done(["完了"])
+
+    style Human fill:#f6d55c,stroke:#333,color:#000
+    style Memory fill:#ef7b45,stroke:#333,color:#fff
+    style Audit fill:#d1e8e2,stroke:#333,color:#000
+    style Formal fill:#d1e8e2,stroke:#333,color:#000
+```
+
+### RUN状態遷移
+
+`.council/active_run.json`の`status`は次の有限状態機械に従う。工程（stage）の前進とは別の軸であり、`status=RUNNING`のまま応答を終えること自体が`hooks/validate.py`のpre-decisionにより`RUN_INCOMPLETE`としてBLOCKされる点に注意。
+
+```mermaid
+stateDiagram-v2
+    [*] --> RUNNING: issue-intake開始<br/>(ISSUE-ID/RUN-ID発行)
+
+    RUNNING --> RUNNING: 工程前進<br/>chair-review→(research)→devil-advocate→<br/>secretary→formal-validation→<br/>(content-audit)→final-synthesis
+
+    RUNNING --> WAITING_FOR_HUMAN: next_action=ESCALATE<br/>下記5条件のいずれかに<br/>該当する場合だけ
+    WAITING_FOR_HUMAN --> RUNNING: 人間の回答後<br/>resume_stepから再開
+
+    RUNNING --> BLOCKED: Hookが機械的にBLOCK<br/>(保護ファイル書込み・秘密情報・<br/>破壊的コマンド・成果物パス不正・<br/>content-audit未解消のまま完了・<br/>RUNNING状態のまま停止 等)
+    BLOCKED --> RUNNING: 原因を修正し再実行
+
+    RUNNING --> FAILED: 回復不能な失敗
+
+    RUNNING --> COMPLETED: final-synthesis完了<br/>content-auditが該当する場合はPASS系
+    RUNNING --> CONDITIONAL_COMPLETION: 条件付き推奨を伴う完了
+    RUNNING --> DEGRADED_COMPLETION: 縮退ありの完了
+    RUNNING --> BOUNDED_COMPLETION: 審議予算(研究/反証/監査差戻し)<br/>を使い切った時点で確定<br/>content-auditがなおREVISE/BLOCKでも可
+
+    COMPLETED --> [*]
+    CONDITIONAL_COMPLETION --> [*]
+    DEGRADED_COMPLETION --> [*]
+    BOUNDED_COMPLETION --> [*]
+    FAILED --> [*]
+
+    note right of WAITING_FOR_HUMAN
+        escalation.reason_codeは次のいずれかのみ:
+        HUMAN_ONLY_INFORMATION
+        CONSTRAINT_CONFLICT
+        IRREVERSIBLE_ACTION
+        LEGAL_OR_ORGANIZATIONAL_AUTHORITY
+        VALUE_CONFLICT
+        UNKNOWN・実機未検証・証拠競合・
+        複数案拮抗・反対意見の存在・低確信度
+        は理由にできない(hooks/validate.pyが検査)。
+    end note
+
+    note right of RUNNING
+        status=RUNNINGのまま応答を終えることは
+        hooks/validate.py pre-decisionが
+        RUN_INCOMPLETEとしてBLOCKする。
+        「次工程の許可待ち」での停止は不可。
+    end note
+
+    note left of COMPLETED
+        これらはいずれも評議会推奨の提示までであり、
+        正式なADOPTED/PENDING/REJECTEDへの登録は
+        人間の承認後にapproved-memory-updateが行う。
+    end note
+```
+
 ## 役割構成
 
 `.claude/agents/`配下のSubagent（6件）:
@@ -123,6 +216,12 @@ Councilの中心は、「複数AIを会話させること」ではなく、「�
 | `final-synthesis` | 議事録・反証・監査結果からの評議会最終推奨生成 |
 | `council-runner` | 評議会RUNを受付から最終推奨まで自律進行 |
 | `approved-memory-update` | 承認済み正式記録更新（人間承認後のみ） |
+
+### 全体アーキテクチャ図
+
+役割・権限の分離（人間／自律統括／Subagent／Skill／Hook）と、設定・実行状態・成果物・正式記録という一方向のデータ経路を1枚で示す。
+
+<img src="docs/diagrams/architecture.ja.svg" alt="Council 全体アーキテクチャ図">
 
 ## ディレクトリ構成
 
@@ -214,6 +313,68 @@ Skill名やSubagent名を逐次指定する必要はない。`council-runner` Sk
 - 価値基準の衝突が主要結論を反転させ、ユーザー定義なしに一方を選ぶことが不適切
 
 次は停止理由にしない。UNKNOWN・実機未検証・証拠の競合・複数案の拮抗・反対意見の存在・確信度の低さは、条件付き結論・残存UNKNOWN・再評価条件として処理される。最終的な採用・保留・否定の決定、および不可逆操作の実行は、常に人間が行う。評議会が自律的に確定するのは推奨までである。
+
+## Hook検査とBLOCK条件
+
+`hooks/validate.py`は4つの実行タイミングで機械的検査を行う。検査するのは形式・状態遷移・成果物パス・審議予算の整合性であり、内容の意味的な正しさは保証しない（意味監査は`content-auditor`、最終的な正しさの保証は人間が担う）。
+
+<img src="docs/diagrams/hook_block_map.ja.svg" alt="Hook検査の骨格">
+
+### 判定コード一覧
+
+#### pre-run（SessionStart起動時）
+
+| 判定 | コード | 内容 |
+|---|---|---|
+| WARNING | `GIT_NOT_INITIALIZED` | Gitが未初期化で、ignore設定を検証できない |
+| WARNING | `ID_REGISTRY_MISSING` | `id_registry.json`が存在しない |
+| FAIL | `REQUIRED_FILE_MISSING` / `REQUIRED_FILE_EMPTY` | 必須設計ファイルの欠落・空 |
+| FAIL | `STATE_NOT_CANONICAL` | `STATE.md`が正本として1つでない |
+| FAIL | `PRIVATE_DIR_MISSING` | `evidence/private`・`runs/private`が存在しない |
+| FAIL | `ID_REGISTRY_INVALID` | `id_registry.json`が不正なJSON |
+| BLOCK | `PRIVATE_NOT_IGNORED` | Git管理下で`private`配下が`.gitignore`対象外 |
+
+#### pre-tool-use（Write/Edit/MultiEdit/NotebookEdit/Bash実行前）
+
+| 判定 | コード | 内容 |
+|---|---|---|
+| BLOCK | `PROTECTED_FILE_WRITE` | 保護ファイルへの直接書込み |
+| BLOCK | `PROTECTED_FILE_WRITE_VIA_BASH` | Bash経由の保護ファイル書込み |
+| BLOCK | `MAINTENANCE_APPROVAL_INVALID` / `_ALREADY_USED` / `_EXPIRED` / `_HASH_MISMATCH` | maintenance一時承認の不備・使用済み・期限切れ・ハッシュ不一致 |
+| BLOCK | `SENSITIVE_PATH_WRITE` | `.env`・`.git`配下への書込み |
+| BLOCK | `SECRET_PATTERN` | 秘密鍵・APIキー様の文字列を検出 |
+| BLOCK | `DESTRUCTIVE_COMMAND` | `git reset --hard`・`git clean -f`・`rm -rf`等の破壊的コマンド |
+
+一時承認（`.council/maintenance_approval.json`）が対象ファイル1件・1回限りで有効な場合のみ、保護ファイル書込みの例外を許可する（詳細は後述の[maintenanceモード](#maintenanceモード)を参照）。
+
+#### post-tool-use（同上ツール実行後）
+
+検査ではなく記録のみ。maintenance承認の使用が完了した場合に限り、対象ファイルの事後SHA-256と完了時刻を`.council/maintenance_log.json`へ追記する。findingは生成されない。
+
+#### pre-decision（Stop＝応答を終えようとするたび）
+
+| 判定 | コード | 内容 |
+|---|---|---|
+| FAIL | `ISSUE_ID_INVALID` / `RUN_ID_INVALID` / `RESEARCH_MODE_INVALID` / `STATUS_INVALID` / `NEXT_ACTION_INVALID` | ID・値の形式不正 |
+| FAIL | `ESCALATION_FIELD_MISSING` | `escalation`必須項目（`question`／`required_answer`／`resume_step`／`why_conditions_cannot_substitute`）の欠落 |
+| FAIL | `OUTPUTS_MISSING` / `CURRENT_STAGE_INVALID` / `OUTPUT_PATH_MISSING` / `OUTPUT_FILE_INVALID` / `OUTPUT_JSON_INVALID` | 成果物の欠落・不正 |
+| FAIL | `CONTENT_AUDIT_MISSING` | 発動条件に該当するのに内容監査が未実施 |
+| FAIL | `BUDGET_INVALID` / `BUDGET_FIELD_INVALID` / `BUDGET_EXCEEDED` | 審議予算の形式不正・超過 |
+| FAIL | `PREMATURE_COMPLETION` / `COMPLETION_ACTION_INVALID` / `PREMATURE_COMPLETE_ACTION` | 完了状態と工程・次アクションの不一致 |
+| BLOCK | `ESCALATION_MISSING` / `ESCALATION_REASON_INVALID` | `WAITING_FOR_HUMAN`なのに`escalation`が無い、または許可された5理由コード以外 |
+| BLOCK | `OUTPUT_OUTSIDE_PRIVATE_RUNS` | 成果物パスが`runs/private/`配下でない |
+| BLOCK | `CONTENT_AUDIT_UNRESOLVED` | content-auditが`REVISE`/`BLOCK`のまま`COMPLETED`系の状態で終了しようとした |
+| BLOCK | `BOUNDED_COMPLETION_WITHOUT_BUDGET_EXHAUSTION` | 監査差戻し予算を使い切らずに`BOUNDED_COMPLETION`にしようとした |
+| BLOCK | `RUN_INCOMPLETE` | `status=RUNNING`のまま応答を終えようとした（「次工程の許可待ち」での停止を機械的に禁止する中核条件） |
+
+判定と挙動の対応は次の通り。
+
+| 判定 | 挙動 |
+|---|---|
+| PASS | そのまま次工程へ進む |
+| PASS_WITH_WARNINGS | 影響を確認したうえで継続可 |
+| FAIL（exit code 2） | 対象データ・対象工程を修正し、同一ターン内で再実行する（停止ではない） |
+| BLOCK（exit code 2） | 機械的に拒否する。原因の修正・承認・再検査が必須 |
 
 ## maintenanceモード
 

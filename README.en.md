@@ -2,6 +2,10 @@
 
 > **Note:** This is a reference translation of [`README.md`](README.md). The Japanese original is the authoritative source for this project. In case of any discrepancy, the Japanese version governs.
 
+<p align="center">
+  <img src="docs/assets/social-preview.png" alt="Council — Auditable Multi-Agent Deliberation" width="100%">
+</p>
+
 ## Overview
 
 An experimental AI council framework that runs investigation, rebuttal, further investigation, audit, and conditional conclusions autonomously on top of Claude Code.
@@ -96,6 +100,98 @@ The standard procedure defined by [`CLAUDE.md`](CLAUDE.md) is as follows.
 
 Council does not ask the human for permission to proceed after each intermediate step. UNKNOWNs, dissenting opinions, and conflicting evidence are handled through further investigation or a conditional conclusion. A run can never finish as COMPLETED, CONDITIONAL_COMPLETION, or DEGRADED_COMPLETION while content-audit's result is still REVISE or BLOCK (the pre-decision phase of `hooks/validate.py` mechanically BLOCKs this). After a fix, a re-audit by `content-auditor` is required, and only once the re-audit budget (`deliberation_budget.max_audit_revisions`) has been exhausted can the run finish as `BOUNDED_COMPLETION`.
 
+### Process Flow Diagram
+
+```mermaid
+flowchart TD
+    Start(["User request"]) --> Intake["issue-intake<br/>Issue ID assignment, duplicate check"]
+    Intake --> Chair["chair-review (chair)<br/>Decompose issues, decide research scope<br/>research_mode: NONE / LOCAL / WEB"]
+    Chair -->|research_mode = LOCAL or WEB| Research["research (researcher)<br/>Prioritize primary sources; record<br/>source, retrieval date, version"]
+    Chair -->|research_mode = NONE| Critic
+    Research --> Critic["devil-advocate (critic)<br/>Rebuts user assumptions, chair draft,<br/>and research; alternatives (incl. one that<br/>reframes the problem itself), worst cases"]
+    Critic --> Judge{"council-orchestrator<br/>Decides whether more research is needed<br/>(impact, feasibility, deliberation budget)"}
+    Judge -->|needed, within budget| ResearchRev["research-revision<br/>Additional research"]
+    ResearchRev --> CriticRev["devil-advocate-revision<br/>Re-rebuttal (if needed)"]
+    CriticRev --> Judge
+    Judge -->|not needed / budget reached| Secretary["secretary<br/>Organizes agreements, disputes, unknowns<br/>into draft minutes; holds no decision power"]
+    Secretary --> Formal{"formal-validation<br/>Formal check<br/>(ID format, required fields, JSON schema)"}
+    Formal -->|FAIL / BLOCK| Secretary
+    Formal -->|PASS / PASS_WITH_WARNINGS| AuditGate{"content-audit<br/>Does a trigger condition apply?<br/>(legal/contract/safety, implementation<br/>change, conflicting evidence, critic-flagged<br/>major risk, human request)"}
+    AuditGate -->|no| Synthesis
+    AuditGate -->|yes| Audit["content-audit (content-auditor)<br/>Independent semantic audit in a fresh context<br/>checks evidence support, assertion, deference, drift"]
+    Audit -->|REVISE / BLOCK, within audit budget| FixStage["Fix the flagged stage<br/>(e.g. secretary)"]
+    FixStage --> Audit
+    Audit -->|PASS / PASS_WITH_WARNINGS| Synthesis["final-synthesis<br/>Produces the council's primary recommendation,<br/>adoption conditions, alternatives, non-recommendation<br/>reasons, and residual unknowns"]
+    Audit -->|REVISE / BLOCK, audit budget exhausted| Synthesis
+    Synthesis --> Human(["Presented to the human<br/>recommendation, conditions, alternatives,<br/>dissent, residual unknowns, reversal conditions"])
+    Human -->|adopt / hold / reject decided| Memory["approved-memory-update<br/>Reflected into records/adopted, pending, or rejected"]
+    Human -->|send back| Revisit(["Re-request to the affected stage"])
+    Memory --> Done(["Done"])
+
+    style Human fill:#f6d55c,stroke:#333,color:#000
+    style Memory fill:#ef7b45,stroke:#333,color:#fff
+    style Audit fill:#d1e8e2,stroke:#333,color:#000
+    style Formal fill:#d1e8e2,stroke:#333,color:#000
+```
+
+### Run Status Transitions
+
+The `status` field of `.council/active_run.json` follows this finite state machine. It is a separate axis from stage progression — note that ending a turn while `status=RUNNING` is itself mechanically BLOCKed by `hooks/validate.py`'s pre-decision phase as `RUN_INCOMPLETE`.
+
+```mermaid
+stateDiagram-v2
+    [*] --> RUNNING: issue-intake starts<br/>(ISSUE-ID / RUN-ID assigned)
+
+    RUNNING --> RUNNING: Stage advances<br/>chair-review→(research)→devil-advocate→<br/>secretary→formal-validation→<br/>(content-audit)→final-synthesis
+
+    RUNNING --> WAITING_FOR_HUMAN: next_action=ESCALATE<br/>only when one of the 5<br/>conditions below holds
+    WAITING_FOR_HUMAN --> RUNNING: Resumes from resume_step<br/>after the human answers
+
+    RUNNING --> BLOCKED: A hook mechanically blocks it<br/>(protected-file write, secret pattern,<br/>destructive command, output path violation,<br/>unresolved content-audit at completion,<br/>stopping while still RUNNING, etc.)
+    BLOCKED --> RUNNING: Fix the cause and re-run
+
+    RUNNING --> FAILED: Unrecoverable failure
+
+    RUNNING --> COMPLETED: final-synthesis done,<br/>content-audit PASS-family if triggered
+    RUNNING --> CONDITIONAL_COMPLETION: Completed with conditional recommendation
+    RUNNING --> DEGRADED_COMPLETION: Completed in a degraded form
+    RUNNING --> BOUNDED_COMPLETION: Set once the deliberation budget<br/>(research/re-critique/audit revisions) is spent,<br/>even if content-audit is still REVISE/BLOCK
+
+    COMPLETED --> [*]
+    CONDITIONAL_COMPLETION --> [*]
+    DEGRADED_COMPLETION --> [*]
+    BOUNDED_COMPLETION --> [*]
+    FAILED --> [*]
+
+    note right of WAITING_FOR_HUMAN
+        escalation.reason_code must be one of:
+        HUMAN_ONLY_INFORMATION
+        CONSTRAINT_CONFLICT
+        IRREVERSIBLE_ACTION
+        LEGAL_OR_ORGANIZATIONAL_AUTHORITY
+        VALUE_CONFLICT
+        Unresolved UNKNOWNs, lack of hands-on
+        verification, conflicting evidence, tied
+        alternatives, dissent, or low confidence
+        are not valid reasons (enforced by hooks/validate.py).
+    end note
+
+    note right of RUNNING
+        Ending a turn while status=RUNNING is
+        mechanically BLOCKed by hooks/validate.py
+        pre-decision as RUN_INCOMPLETE.
+        Stopping to await "permission for the next stage"
+        is not allowed.
+    end note
+
+    note left of COMPLETED
+        All of these are only the council's recommendation.
+        Formal registration as ADOPTED/PENDING/REJECTED
+        happens only after human approval, via
+        approved-memory-update.
+    end note
+```
+
 ## Role Configuration
 
 Subagents under `.claude/agents/` (6):
@@ -123,6 +219,12 @@ Skills under `.claude/skills/` (10):
 | `final-synthesis` | Produce the council's final recommendation from the minutes, rebuttal, and audit results |
 | `council-runner` | Run the council run autonomously from intake to final recommendation |
 | `approved-memory-update` | Update the approved official record (only after human approval) |
+
+### Overall Architecture Diagram
+
+Shows, in one diagram, the separation of roles/authority (human / autonomous orchestrator / Subagent / Skill / Hook) and the one-way data path from config to run state to artifacts to the formal record.
+
+<img src="docs/diagrams/architecture.en.svg" alt="Council overall architecture diagram">
 
 ## Directory Layout
 
@@ -215,6 +317,68 @@ The council enters `WAITING_FOR_HUMAN` only when it concretely meets one of the 
 - A conflict of values would reverse the main conclusion, and it would be inappropriate to pick one side without a user-supplied definition
 
 The following are never, by themselves, a reason to stop: an UNKNOWN; lack of real-machine verification; conflicting evidence; a close contest between multiple options; the mere existence of a dissenting opinion; or low confidence. These are instead handled as a conditional conclusion, a remaining UNKNOWN, or a condition for re-evaluation. The final decision to adopt, hold pending, or reject, and the execution of any irreversible action, is always made by a human. What the council finalizes autonomously stops at the recommendation.
+
+## Hook Checks and BLOCK Conditions
+
+`hooks/validate.py` runs mechanical checks at 4 execution points. What it checks is the consistency of form, state transitions, artifact paths, and the deliberation budget — it does not certify the semantic correctness of content (semantic audit is `content-auditor`'s job; final correctness is guaranteed only by the human).
+
+<img src="docs/diagrams/hook_block_map.en.svg" alt="Skeleton of Hook checks">
+
+### Finding Code Reference
+
+#### pre-run (on SessionStart)
+
+| Verdict | Code | Meaning |
+|---|---|---|
+| WARNING | `GIT_NOT_INITIALIZED` | Git is not initialized, so ignore rules cannot be verified |
+| WARNING | `ID_REGISTRY_MISSING` | `id_registry.json` does not exist |
+| FAIL | `REQUIRED_FILE_MISSING` / `REQUIRED_FILE_EMPTY` | A required design file is missing or empty |
+| FAIL | `STATE_NOT_CANONICAL` | `STATE.md` is not exactly one canonical file |
+| FAIL | `PRIVATE_DIR_MISSING` | `evidence/private` or `runs/private` does not exist |
+| FAIL | `ID_REGISTRY_INVALID` | `id_registry.json` is not valid JSON |
+| BLOCK | `PRIVATE_NOT_IGNORED` | Under Git, the `private` paths are not excluded via `.gitignore` |
+
+#### pre-tool-use (before Write/Edit/MultiEdit/NotebookEdit/Bash)
+
+| Verdict | Code | Meaning |
+|---|---|---|
+| BLOCK | `PROTECTED_FILE_WRITE` | Direct write to a protected file |
+| BLOCK | `PROTECTED_FILE_WRITE_VIA_BASH` | Write to a protected file via Bash |
+| BLOCK | `MAINTENANCE_APPROVAL_INVALID` / `_ALREADY_USED` / `_EXPIRED` / `_HASH_MISMATCH` | A defect, prior use, expiry, or hash mismatch in a maintenance approval |
+| BLOCK | `SENSITIVE_PATH_WRITE` | Write under `.env` or `.git` |
+| BLOCK | `SECRET_PATTERN` | A string resembling a private key or API key was detected |
+| BLOCK | `DESTRUCTIVE_COMMAND` | A destructive command such as `git reset --hard`, `git clean -f`, or `rm -rf` |
+
+A one-time, single-file maintenance approval (`.council/maintenance_approval.json`) is the only way to grant an exception for a protected-file write (see [Maintenance Mode](#maintenance-mode) below).
+
+#### post-tool-use (after the same tools)
+
+Logs rather than checks. Only once a maintenance approval's use is completed, it appends the target file's post-write SHA-256 and completion time to `.council/maintenance_log.json`. No finding is ever produced here.
+
+#### pre-decision (Stop — every time a turn is about to end)
+
+| Verdict | Code | Meaning |
+|---|---|---|
+| FAIL | `ISSUE_ID_INVALID` / `RUN_ID_INVALID` / `RESEARCH_MODE_INVALID` / `STATUS_INVALID` / `NEXT_ACTION_INVALID` | Malformed ID or value |
+| FAIL | `ESCALATION_FIELD_MISSING` | A required `escalation` field (`question` / `required_answer` / `resume_step` / `why_conditions_cannot_substitute`) is missing |
+| FAIL | `OUTPUTS_MISSING` / `CURRENT_STAGE_INVALID` / `OUTPUT_PATH_MISSING` / `OUTPUT_FILE_INVALID` / `OUTPUT_JSON_INVALID` | An artifact is missing or malformed |
+| FAIL | `CONTENT_AUDIT_MISSING` | A trigger condition applies but the content audit was not run |
+| FAIL | `BUDGET_INVALID` / `BUDGET_FIELD_INVALID` / `BUDGET_EXCEEDED` | Malformed or exceeded deliberation budget |
+| FAIL | `PREMATURE_COMPLETION` / `COMPLETION_ACTION_INVALID` / `PREMATURE_COMPLETE_ACTION` | Completion status inconsistent with the stage or next action |
+| BLOCK | `ESCALATION_MISSING` / `ESCALATION_REASON_INVALID` | `WAITING_FOR_HUMAN` with no `escalation` object, or a reason code outside the allowed 5 |
+| BLOCK | `OUTPUT_OUTSIDE_PRIVATE_RUNS` | An artifact path is not under `runs/private/` |
+| BLOCK | `CONTENT_AUDIT_UNRESOLVED` | Tried to finish as `COMPLETED`-family while content-audit is still `REVISE`/`BLOCK` |
+| BLOCK | `BOUNDED_COMPLETION_WITHOUT_BUDGET_EXHAUSTION` | Tried to set `BOUNDED_COMPLETION` without exhausting the audit-revision budget |
+| BLOCK | `RUN_INCOMPLETE` | Tried to end a turn while `status=RUNNING` — the core condition that mechanically forbids stopping to "await permission for the next stage" |
+
+The verdict-to-behavior mapping is as follows.
+
+| Verdict | Behavior |
+|---|---|
+| PASS | Proceeds to the next stage |
+| PASS_WITH_WARNINGS | May continue, after the warning's impact is reviewed |
+| FAIL (exit code 2) | Fixes the target data/stage and retries within the same turn (not a stop) |
+| BLOCK (exit code 2) | Mechanically refused; a fix, approval, and re-check are required |
 
 ## Maintenance Mode
 

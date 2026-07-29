@@ -1,0 +1,119 @@
+<svg viewBox="0 0 1440 620" xmlns="http://www.w3.org/2000/svg" font-family="'Yu Gothic','Noto Sans JP','Segoe UI',sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#222"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="1440" height="620" fill="#ffffff"/>
+
+  <text x="720" y="28" text-anchor="middle" font-size="20" font-weight="700" fill="#1a1a1a">Hook検査の骨格（hooks/validate.py）</text>
+  <text x="720" y="48" text-anchor="middle" font-size="12.5" fill="#666">4つの実行タイミングと判定の帰結だけを示す。個々のfindingコード一覧は README の表を参照</text>
+
+  <!-- Column frames: width 277, 70px gap reserved for arrows -->
+  <rect x="60" y="70" width="277" height="290" rx="10" fill="#fafafa" stroke="#555" stroke-width="1.6"/>
+  <rect x="407" y="70" width="277" height="290" rx="10" fill="#fafafa" stroke="#555" stroke-width="1.6"/>
+  <rect x="754" y="70" width="277" height="290" rx="10" fill="#fafafa" stroke="#555" stroke-width="1.6"/>
+  <rect x="1101" y="70" width="277" height="290" rx="10" fill="#fafafa" stroke="#555" stroke-width="1.6"/>
+
+  <!-- inter-column arrows, given real room in the 70px gap -->
+  <line x1="341" y1="95" x2="403" y2="95" stroke="#222" stroke-width="2.4" marker-end="url(#arrow)"/>
+  <text x="372" y="115" text-anchor="middle" font-size="10" fill="#555">起動後</text>
+
+  <line x1="688" y1="95" x2="750" y2="95" stroke="#222" stroke-width="2.4" marker-end="url(#arrow)"/>
+  <text x="719" y="115" text-anchor="middle" font-size="10" fill="#555">許可時</text>
+
+  <line x1="1035" y1="95" x2="1097" y2="95" stroke="#222" stroke-width="2.4" marker-end="url(#arrow)"/>
+  <text x="1066" y="115" text-anchor="middle" font-size="10" fill="#555">検査後</text>
+
+  <!-- Column 1: pre-run -->
+  <text x="78" y="98" font-size="14.5" font-weight="700" fill="#1c2c3c">pre-run</text>
+  <text x="78" y="114" font-size="10.5" fill="#666">起点：SessionStart（起動時）</text>
+  <text x="78" y="136" font-size="11" fill="#333">検査対象：必須ファイル・STATE正本・</text>
+  <text x="78" y="150" font-size="11" fill="#333">private・git ignore・IDレジストリ</text>
+
+  <rect x="78" y="160" width="241" height="24" rx="4" fill="#e8f5ee" stroke="#27633f"/>
+  <text x="198" y="176" text-anchor="middle" font-size="10.8" fill="#1e4c32">PASS／WARNING－起動を継続</text>
+
+  <rect x="78" y="188" width="241" height="26" rx="4" fill="#fdf1e6" stroke="#c9791a"/>
+  <text x="198" y="205" text-anchor="middle" font-size="10.8" fill="#8a4a00">FAIL－起動不可、ファイルを是正</text>
+
+  <rect x="78" y="218" width="241" height="26" rx="4" fill="#fdecea" stroke="#c0392b"/>
+  <text x="198" y="235" text-anchor="middle" font-size="10.8" fill="#a32c20">BLOCK－private未ignoreを是正</text>
+
+  <!-- Column 2: pre-tool-use -->
+  <text x="425" y="98" font-size="14.5" font-weight="700" fill="#1c2c3c">pre-tool-use</text>
+  <text x="425" y="114" font-size="10.5" fill="#666">起点：Write/Edit/Bash 実行前</text>
+  <text x="425" y="136" font-size="11" fill="#333">検査対象：保護ファイル・秘密情報・</text>
+  <text x="425" y="150" font-size="11" fill="#333">破壊的コマンド・センシティブパス</text>
+
+  <rect x="425" y="160" width="241" height="24" rx="4" fill="#e8f5ee" stroke="#27633f"/>
+  <text x="545" y="176" text-anchor="middle" font-size="10.8" fill="#1e4c32">PASS－書込み／実行を許可</text>
+
+  <rect x="425" y="188" width="241" height="44" rx="4" fill="#fdecea" stroke="#c0392b"/>
+  <text x="545" y="205" text-anchor="middle" font-size="10.8" fill="#a32c20">BLOCK－実行を拒否</text>
+  <text x="545" y="221" text-anchor="middle" font-size="9.6" fill="#7a4038">（一時承認があれば保護ファイル例外あり）</text>
+
+  <!-- Column 3: post-tool-use -->
+  <text x="772" y="98" font-size="14.5" font-weight="700" fill="#1c2c3c">post-tool-use</text>
+  <text x="772" y="114" font-size="10.5" fill="#666">起点：同上ツール実行後</text>
+  <text x="772" y="136" font-size="11" fill="#333">検査対象：なし（検査でなく記録）</text>
+
+  <rect x="772" y="160" width="241" height="52" rx="4" fill="#f2f2f2" stroke="#555"/>
+  <text x="892" y="177" text-anchor="middle" font-size="10.8" fill="#333">常時PASS</text>
+  <text x="892" y="193" text-anchor="middle" font-size="9.6" fill="#444">一時承認の使用完了だけを検知し、</text>
+  <text x="892" y="207" text-anchor="middle" font-size="9.6" fill="#444">前後のハッシュと完了時刻を記録</text>
+
+  <path d="M 940 240 q 90 40 0 80" fill="none" stroke="#888" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <text x="892" y="290" text-anchor="middle" font-size="10" fill="#777">工程が続く限り</text>
+  <text x="892" y="303" text-anchor="middle" font-size="10" fill="#777">pre-tool-use と繰り返す</text>
+
+  <!-- Column 4: pre-decision -->
+  <text x="1119" y="98" font-size="14.5" font-weight="700" fill="#1c2c3c">pre-decision</text>
+  <text x="1119" y="114" font-size="10.5" fill="#666">起点：Stop（応答を終えるたび）</text>
+  <text x="1119" y="136" font-size="11" fill="#333">検査対象：状態遷移・成果物・</text>
+  <text x="1119" y="150" font-size="11" fill="#333">審議予算・完了条件の整合性</text>
+
+  <rect x="1119" y="160" width="241" height="24" rx="4" fill="#e8f5ee" stroke="#27633f"/>
+  <text x="1239" y="176" text-anchor="middle" font-size="10.8" fill="#1e4c32">PASS－応答終了を許可</text>
+
+  <rect x="1119" y="188" width="241" height="40" rx="4" fill="#fdf1e6" stroke="#c9791a"/>
+  <text x="1239" y="204" text-anchor="middle" font-size="10.8" fill="#8a4a00">FAIL－対象を修正し</text>
+  <text x="1239" y="219" text-anchor="middle" font-size="10.8" fill="#8a4a00">同一ターン内で再実行</text>
+
+  <rect x="1119" y="232" width="241" height="58" rx="4" fill="#fdecea" stroke="#c0392b"/>
+  <text x="1239" y="248" text-anchor="middle" font-size="10.8" font-weight="700" fill="#a32c20">BLOCK－応答終了を拒否</text>
+  <text x="1239" y="263" text-anchor="middle" font-size="9.6" fill="#7a4038">監査未解消／予算未消化のまま完了／</text>
+  <text x="1239" y="277" text-anchor="middle" font-size="9.6" fill="#7a4038">RUNNINGのまま停止 等</text>
+
+  <!-- Bottom notes -->
+  <rect x="60" y="376" width="640" height="76" rx="8" fill="#ffffff" stroke="#999" stroke-width="1.4"/>
+  <text x="76" y="398" font-size="12" font-weight="700" fill="#333">FAILは停止ではない</text>
+  <text x="76" y="416" font-size="11" fill="#444">対象データ・対象工程を修正し、同じターンの中で</text>
+  <text x="76" y="432" font-size="11" fill="#444">再実行する。ターンをまたいで止まるのはBLOCKのみ。</text>
+
+  <rect x="740" y="376" width="640" height="76" rx="8" fill="#ffffff" stroke="#999" stroke-width="1.4"/>
+  <text x="756" y="398" font-size="12" font-weight="700" fill="#333">pre-decisionだけがRUNの終了そのものをゲートする</text>
+  <text x="756" y="416" font-size="11" fill="#444">status=RUNNINGのまま応答を終えることはBLOCK対象。</text>
+  <text x="756" y="432" font-size="11" fill="#444">「次工程の許可待ち」で止まる行為自体を機械的に禁止する。</text>
+
+  <!-- Human stop conditions -->
+  <rect x="60" y="466" width="1320" height="130" rx="10" fill="#eef7f1" stroke="#27633f" stroke-width="1.8"/>
+  <text x="78" y="490" font-size="13" font-weight="700" fill="#1e4c32">人間へ停止できる条件（WAITING_FOR_HUMAN）－ escalation.reason_code はHookが形式のみ検査</text>
+
+  <g font-size="11" fill="#1e4c32">
+    <rect x="78" y="502" width="240" height="30" rx="14" fill="#ffffff" stroke="#27633f"/>
+    <text x="198" y="521" text-anchor="middle">HUMAN_ONLY_INFORMATION</text>
+    <rect x="330" y="502" width="200" height="30" rx="14" fill="#ffffff" stroke="#27633f"/>
+    <text x="430" y="521" text-anchor="middle">CONSTRAINT_CONFLICT</text>
+    <rect x="542" y="502" width="200" height="30" rx="14" fill="#ffffff" stroke="#27633f"/>
+    <text x="642" y="521" text-anchor="middle">IRREVERSIBLE_ACTION</text>
+    <rect x="754" y="502" width="290" height="30" rx="14" fill="#ffffff" stroke="#27633f"/>
+    <text x="899" y="521" text-anchor="middle">LEGAL_OR_ORGANIZATIONAL_AUTHORITY</text>
+    <rect x="1056" y="502" width="180" height="30" rx="14" fill="#ffffff" stroke="#27633f"/>
+    <text x="1146" y="521" text-anchor="middle">VALUE_CONFLICT</text>
+  </g>
+
+  <text x="78" y="548" font-size="11" fill="#204832">上記以外（UNKNOWN・実機未検証・証拠競合・複数案拮抗・反対意見・低確信度・追加調査の余地）は、</text>
+  <text x="78" y="565" font-size="11" fill="#204832">単独では停止理由にならず、条件付き結論／再評価条件として自律的に処理を続ける。</text>
+  <text x="78" y="586" font-size="10.3" fill="#3a6a4d" font-style="italic">個々のFAIL／BLOCK判定コードの全一覧、および判定と挙動の対応表は README を参照。</text>
+</svg>
