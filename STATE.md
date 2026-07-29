@@ -1,6 +1,6 @@
 # ローカル評議会システム STATE
 
-更新日: 2026-07-25
+更新日: 2026-07-28
 
 ## 1. 現在の目的
 
@@ -8,15 +8,17 @@ Claude Code上で、自律熟議評議会の最小PoCを実案件に適用し、
 
 ## 2. 現在地
 
-初回実案件RUN完了（CONDITIONAL_COMPLETION）。人間の正式採否待ち。
+実案件RUN2件完了（いずれもCONDITIONAL_COMPLETION）。人間の正式採否待ちが2件並行している。
 
 - 完了: 製品非依存の基本設計
 - 完了: Claude Code用Skill・Subagent・Hook
 - 完了: council-runnerとcouncil-orchestrator
 - 完了: final-synthesis
 - 完了: Hook単体テスト
-- 完了: 初回実案件RUN（ISSUE-2026-0001／RUN-20260725-0001、対象: https://github.com/zareefahmed/ailane 導入可否検討）。issue-intake→chair-review→research→devil-advocate→research-revision→secretary→formal-validation→content-audit(2回)→final-synthesisまで自律完了。成果物は`runs/private/RUN-20260725-0001/attempt-01/`。第一推奨は条件付き採用（限定環境での試験導入）。
-- 次: 人間による正式採否（採用/保留/否定/条件付き採用のいずれか）。採否確定後のみapproved-memory-update
+- 完了: 実案件RUN（ISSUE-2026-0001／RUN-20260725-0001、対象: https://github.com/zareefahmed/ailane 導入可否検討）。issue-intake→chair-review→research→devil-advocate→research-revision→secretary→formal-validation→content-audit(2回)→final-synthesisまで自律完了。成果物は`runs/private/RUN-20260725-0001/attempt-01/`。第一推奨は条件付き採用（限定環境での試験導入）。
+- 完了: 実案件RUN（ISSUE-2026-0002／RUN-20260728-0001、題目: 評議会システム自身への「視点転換・外部確認」役割導入の要否）。issue-intake→chair-review→research(LOCAL)→devil-advocate→research-revision→secretary→formal-validation→content-audit→final-synthesisまで自律完了。成果物は`runs/private/RUN-20260728-0001/attempt-01/`。第一推奨は独立Subagent新設を保留し、既存role拡張の低コスト施策を先行させる段階的検証アプローチ。
+- 完了: ISSUE-2026-0002の一部採用（DEC-2026-0001）。critic.md（alternativesの問題設定再定義必須化）とcouncil-orchestrator.md（自己点検指標）へ反映済み。独立Subagent新設は引き続き保留、次のN件（目安3〜5件）のRUN実績蓄積後に再評価。
+- 次: ISSUE-2026-0001の正式採否（人間の決定待ち）
 
 ## 3. 初回RUNの原則
 
@@ -28,11 +30,14 @@ Claude Code上で、自律熟議評議会の最小PoCを実案件に適用し、
 
 ## 4. 作業中
 
-なし。RUN-20260725-0001はfinal-synthesisまで完了し、`.council/active_run.json`はstatus=CONDITIONAL_COMPLETION, next_action=COMPLETEで確定済み。
+なし。RUN-20260725-0001、RUN-20260728-0001ともfinal-synthesisまで完了し、`.council/active_run.json`は直近（RUN-20260728-0001）でstatus=CONDITIONAL_COMPLETION, next_action=COMPLETEで確定済み。
 
 ## 5. 次の作業
 
-ISSUE-2026-0001について、final_synthesis（`runs/private/RUN-20260725-0001/attempt-01/final_synthesis.md`）を踏まえた人間の正式採否。採用・保留・否定・条件付き採用のいずれかが決まった場合のみ、`approved-memory-update`でDECISIONS.md/PENDING.md/REJECTED.mdへ反映する。
+- ISSUE-2026-0001について、final_synthesis（`runs/private/RUN-20260725-0001/attempt-01/final_synthesis.md`）を踏まえた人間の正式採否。
+- ISSUE-2026-0002は低コスト2施策（DEC-2026-0001）を採用済み。残る論点（独立Subagent新設の要否）は、試験運用件数N（目安3〜5件）の確定と、その件数分のRUN実績蓄積を待って再評価する。
+
+採否確定後のみ`approved-memory-update`でDECISIONS.md/PENDING.md/REJECTED.mdへ反映する（ISSUE-2026-0002については既に一部反映済み: DEC-2026-0001）。
 
 ## 6. 未解決事項
 

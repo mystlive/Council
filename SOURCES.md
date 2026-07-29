@@ -322,3 +322,22 @@ research-revisionで追加取得。取得日2026-07-25。詳細は `runs/private
 | SRC-2026-0037 | source_code | primary | https://raw.githubusercontent.com/zareefahmed/ailane/main/package.json（scriptsフィールド確認） | v0.1.3 | CONTENT_VERIFIED |
 
 関連ISSUE-ID: ISSUE-2026-0001。関連DECISION-ID: なし（未採否）。
+
+## 18. 登録済み出典（ISSUE-2026-0002）
+
+| SRC-ID | 種別 | 一次/二次 | 対象 | 検証状態 |
+|---|---|---|---|---|
+| SRC-2026-0038 | local_file | primary | runs/private/RUN-20260725-0001/attempt-01/ 配下全工程出力 | CONTENT_VERIFIED |
+| SRC-2026-0039 | source_code | primary | hooks/validate.py（全文） | CONTENT_VERIFIED |
+| SRC-2026-0040 | source_code | primary | .claude/agents/critic.md（全文） | CONTENT_VERIFIED |
+| SRC-2026-0041 | source_code | primary | .claude/agents/council-orchestrator.md（全文） | CONTENT_VERIFIED |
+
+関連ISSUE-ID: ISSUE-2026-0002。関連DECISION-ID: なし（未採否）。
+
+## 19. 登録済み出典（ISSUE-2026-0002 追加調査分）
+
+| SRC-ID | 種別 | 一次/二次 | 対象 | 検証状態 |
+|---|---|---|---|---|
+| SRC-2026-0042 | local_file | primary | runs/private/、records/ ディレクトリ構成確認 | CONTENT_VERIFIED |
+
+関連ISSUE-ID: ISSUE-2026-0002。関連DECISION-ID: なし（未採否）。

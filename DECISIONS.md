@@ -114,4 +114,4 @@ review_condition: ""
 
 ## 7. 現在の正式決定
 
-現時点では登録なし。
+- [DEC-2026-0001](records/adopted/DEC-2026-0001.md) — 評議会システムへの視点転換・自己点検の低コスト施策の部分採用（ISSUE-2026-0002）、status: ADOPTED

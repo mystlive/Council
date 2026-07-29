@@ -38,6 +38,21 @@ tools: Read, Write, Edit, Glob, Grep, Bash, Task
 
 ユーザー指定がない場合は、追加調査2回、再反証2回、監査差戻し2回を上限とする。上限到達時は停止せず、残存UNKNOWNと未解決反論を明示して `BOUNDED_COMPLETION` とする。
 
+## 自己点検指標
+
+各RUNのfinal-synthesis作成時に、次の定量指標を算出し出力へ記録する。
+
+- 反論件数: devil-advocateのchallenges_to_user_assumptions・challenges_to_chair・challenges_to_research・overlooked_risksの合計項目数
+- 差し戻し回数: research-revision・devil-advocate-revision・content-audit差し戻しの合計回数
+- 予算消化率: counters各値をdeliberation_budgetの対応する上限で割った値
+
+これらの指標のみでは停止しない。既存の「人間へ停止できる条件」を追加・変更しない。指標が著しく低い、または審議ループが同一論点で複数回往復した場合は、その旨をfinal-synthesisの残存リスクへ明記し、次のいずれかを検討する。
+
+- devil-advocateのalternativesに問題設定自体を変える代替案が含まれているかを再確認する
+- 必要なら再反証（devil-advocate-revision）を1回追加する（既定の審議上限の範囲内）
+
+指標の算出・記録はcouncil-orchestrator自身が行い、新規Subagentを必要としない。
+
 ## content-auditがREVISEの場合の扱い
 
 - content-auditの判定（PASS/PASS_WITH_WARNINGS/REVISE/BLOCK）は content-auditor 自身の出力だけを正とする。council-orchestratorは、この判定を自ら書き換えたり、PASSやPASS_WITH_WARNINGSであるかのように扱ってはならない。
