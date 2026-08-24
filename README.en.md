@@ -82,6 +82,27 @@ This project draws on existing ideas from multi-agent systems, rebuttal, audit, 
 
 This is not a claim of being wholly novel, a world first, or proven superior to existing approaches.
 
+## Runtime Hardening Status
+
+Runtime hardening is in progress.
+
+- Codex CLI and OrcaRouter are available as Provider Adapters
+- RUN transitions, budgets, and artifact envelopes are checked deterministically
+- Public and private manifests are separated and linked by a hash
+- Formal record updates require time-limited human approval, a diff, and a pre-change hash
+- Source snapshots are fixed by SHA-256 and linked to CLAIM records
+- Private details are retained for 90 days and private manifests for 365 days; deletion requires human approval
+
+Prompts, responses, API keys, and authorization headers are not stored in manifests.
+
+Run the checks with:
+
+```powershell
+python -m unittest discover -s hooks/tests -v
+python hooks/validate.py pre-run --root . --json
+python hooks/validate.py pre-decision --root . --json
+```
+
 ## The Council's Processing Flow
 
 The standard procedure defined by [`CLAUDE.md`](CLAUDE.md) is as follows.

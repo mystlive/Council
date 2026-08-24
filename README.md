@@ -82,6 +82,27 @@ Councilの中心は、「複数AIを会話させること」ではなく、「�
 
 完全新規、世界初、既存手法に対する優位性の証明を主張するものではない。
 
+## 実行基盤硬化の現在地
+
+実行基盤硬化は進行中です。
+
+- Codex CLIとOrcaRouterをProvider Adapterとして利用できる
+- RUN状態遷移、予算、成果物Envelopeを決定論的に検査する
+- 公開マニフェストと非公開マニフェストを分離し、相互ハッシュを保持する
+- 正式記録は期限付きの人間承認を要求し、差分と元ファイルハッシュを検査する
+- 出典スナップショットをSHA-256で固定し、CLAIMとSOURCEを対応付ける
+- private詳細本文は90日、privateマニフェストは365日保持し、削除は人間承認で実行する
+
+プロンプト本文、応答本文、APIキー、認証ヘッダーはマニフェストへ保存しない。
+
+検証は次のコマンドで実行できます。
+
+```powershell
+python -m unittest discover -s hooks/tests -v
+python hooks/validate.py pre-run --root . --json
+python hooks/validate.py pre-decision --root . --json
+```
+
 ## 評議会の処理フロー
 
 [`CLAUDE.md`](CLAUDE.md)が定義する標準工程は次の通り。
