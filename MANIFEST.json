@@ -1,6 +1,6 @@
 {
   ".gitignore": "e7923073c6ea2a369007a2d23061c0846f4683f2df0114ef59e9d8c3ff5ccb85",
-  "_index.md": "e70b9c5e0ba43b60f00c2fc1c8c875bf5cbb445076a0bdf773debecbbe8b385a",
+  "_index.md": "3c08479265c9222f183dcb94df1fda118227df9620fbf1808c492d2d981fbf63",
   ".claude/agents/chair.md": "63bcd25912ea4a694846d2e56d4a20cdff5d83cc965d7762caa2566efffc9d08",
   ".claude/agents/content-auditor.md": "cb9dd400312ed86e48994749242f723689e260efe09db533419354713a2f2572",
   ".claude/agents/council-orchestrator.md": "4a9a491a377ac721863aa0cac6375f470d8c9558b3ddf90205ec8fb72b2af62e",
@@ -49,7 +49,7 @@
   "STATE.md": "cc2ef0ab20f0a5286cb2ad62d5e8d1e7f4254f65823f9325b5a1146b095c5fff",
   "WEB_RESEARCH_RULES.md": "9ff342b970591eb02ec09af11237e2d818a80726a8f77a072e9c4edceabd5f3c",
   "docs/CLAUDE_CODE_POC_DESIGN.md": "a71759e41afda1ebfc087cb2fce026333116c795374879eb947590853e58516b",
-  "docs/runtime-hardening-design.md": "363163f5273404476d16645b12000b0247c221d1b6f7c62d766ebad74907041d",
+  "docs/runtime-hardening-design.md": "49951054f7ae3f9c487ec837c24d8c7ee96c9ca7438264b19bf57a04474b8275",
   "evidence/private/.gitkeep": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "hooks/README.md": "b8e041d956c58b2114032ddd7eb7357f350dd31f9a9859b5cd41e38481cf2c91",
   "hooks/self_review.py": "c60d48897fbd75d52f7dff784bd88d9c0176b7d3fe9acf537b8db30d8d925ec1",
