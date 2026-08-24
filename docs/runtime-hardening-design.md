@@ -34,8 +34,8 @@ User request
 Deterministic Runner
     |  state, budget, retry, artifact contract
     +--> Provider Adapter
-    |       +--> Claude Code role invocation
-    |       +--> Other provider role invocation
+    |       +--> Codex CLI role invocation
+    |       +--> OrcaRouter role invocation
     |
     +--> Schema Validator
     +--> Provenance Ledger
@@ -45,6 +45,12 @@ Deterministic Runner
 Runnerが工程遷移を所有し、LLMは各役の成果物を生成します。
 
 Provider Adapterは、役割名、入力参照、出力参照、失敗、再試行を共通契約へ変換します。
+
+最初の対応ProviderはCodex CLIとOrcaRouterです。
+
+Codexは非対話の`codex exec --json`を使い、OrcaRouterはOpenAI互換のChat Completionsエンドポイントを使います。
+
+アダプターは1回の呼び出しだけを担当し、再試行、予算、工程遷移、公開証跡への書き込みはRunnerとProvenance層へ委譲します。
 
 ## 4. 成果物の不変条件
 
@@ -77,7 +83,7 @@ RUNごとに次のメタデータを追跡します。
 4. 監査パスを追記専用にする。
 5. RUNマニフェストとハッシュ証跡を追加する。
 6. 決定論的Runnerを追加する。
-7. Claude Code実行Adapterを追加する。
+7. Codex CLIとOrcaRouter実行Adapterを追加する。
 8. 正式記録更新経路と差分検査を強化する。
 9. 出典スナップショットとCLAIM対応を追加する。
 10. 通し試験、README、正本、MANIFESTを同期する。
