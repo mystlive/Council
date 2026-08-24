@@ -20,5 +20,6 @@ runs/private/
 .council/id_registry.lock
 .council/provenance.lock
 .council/runner.lock
+.council/retention_deletion_approval.json
 __pycache__/
 *.pyc
