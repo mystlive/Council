@@ -11,10 +11,15 @@ class T(unittest.TestCase):
   d={'issue_id':'ISSUE-2026-0001','run_id':'RUN-20260722-0001','research_mode':mode,'current_stage':stage,'status':status,'next_action':next_action,'outputs':outputs or {}}
   if escalation is not None:d['escalation']=escalation
   (r/'.council'/'active_run.json').write_text(json.dumps(d),encoding='utf-8')
+ def artifact_envelope(self,name):
+  stages={'i':'issue-intake','c':'chair-review','d':'devil-advocate','s':'secretary','fv':'formal-validation','ca':'content-audit','fs':'final-synthesis'}
+  skills={'i':'issue-intake','c':'chair-review','d':'devil-advocate','s':'secretary','fv':'formal-validation','ca':'content-audit','fs':'final-synthesis'}
+  stage=stages.get(name,'research')
+  return {'schema_version':'1.0','skill':skills.get(name,'web-research'),'issue_id':'ISSUE-2026-0001','run_id':'RUN-20260722-0001','attempt':1,'status':'COMPLETED','current_stage':stage,'next_action':'COMPLETE' if stage=='final-synthesis' else 'CONTINUE','escalation':None,'input_refs':[],'output_refs':[],'claims':[],'unknowns':[],'warnings':[],'errors':[]}
  def artifact(self,r,name):
-  p=r/'runs'/'private'/f'{name}.json';p.parent.mkdir(parents=True,exist_ok=True);p.write_text('{}',encoding='utf-8');return str(p)
+  p=r/'runs'/'private'/f'{name}.json';p.parent.mkdir(parents=True,exist_ok=True);p.write_text(json.dumps(self.artifact_envelope(name)),encoding='utf-8');return str(p)
  def artifact_json(self,r,name,obj):
-  p=r/'runs'/'private'/f'{name}.json';p.parent.mkdir(parents=True,exist_ok=True);p.write_text(json.dumps(obj),encoding='utf-8');return str(p)
+  p=r/'runs'/'private'/f'{name}.json';p.parent.mkdir(parents=True,exist_ok=True);data=self.artifact_envelope(name);data.update(obj);p.write_text(json.dumps(data),encoding='utf-8');return str(p)
  def final_outputs(self,r,content_audit_result=None):
   o={'issue_intake':self.artifact(r,'i'),'chair_review':self.artifact(r,'c'),'devil_advocate':self.artifact(r,'d'),'secretary':self.artifact(r,'s'),'formal_validation':self.artifact(r,'fv'),'final_synthesis':self.artifact(r,'fs')}
   if content_audit_result is not None:
@@ -44,6 +49,21 @@ class T(unittest.TestCase):
   with tempfile.TemporaryDirectory() as d:
    r=Path(d);o={'issue_intake':self.artifact(r,'i'),'chair_review':self.artifact(r,'c')};self.active(r,outputs=o)
    self.assertEqual(m.pre_decision(r).result,'BLOCK')
+ def test_artifact_envelope_is_required(self):
+  with tempfile.TemporaryDirectory() as d:
+   r=Path(d);p=r/'runs'/'private'/'i.json';p.parent.mkdir(parents=True,exist_ok=True);p.write_text('{}',encoding='utf-8')
+   self.active(r,outputs={'issue_intake':str(p),'chair_review':str(p)})
+   x=m.pre_decision(r);self.assertTrue(any(f.code=='ARTIFACT_FIELD_MISSING' for f in x.findings))
+ def test_artifact_identity_must_match_active_run(self):
+  with tempfile.TemporaryDirectory() as d:
+   r=Path(d);p=Path(self.artifact(r,'i'));data=json.loads(p.read_text(encoding='utf-8'));data['issue_id']='ISSUE-2026-0099';p.write_text(json.dumps(data),encoding='utf-8')
+   self.active(r,outputs={'issue_intake':str(p),'chair_review':str(p)})
+   x=m.pre_decision(r);self.assertTrue(any(f.code=='ARTIFACT_ISSUE_ID_MISMATCH' for f in x.findings))
+ def test_artifact_reference_traversal_is_rejected(self):
+  with tempfile.TemporaryDirectory() as d:
+   r=Path(d);p=Path(self.artifact(r,'i'));data=json.loads(p.read_text(encoding='utf-8'));data['input_refs']=['../secret.json'];p.write_text(json.dumps(data),encoding='utf-8')
+   self.active(r,outputs={'issue_intake':str(p),'chair_review':str(p)})
+   x=m.pre_decision(r);self.assertTrue(any(f.code=='ARTIFACT_REF_UNSAFE' for f in x.findings))
  def test_unknown_does_not_require_human(self):
   with tempfile.TemporaryDirectory() as d:
    r=Path(d);o={'issue_intake':self.artifact(r,'i'),'chair_review':self.artifact(r,'c')};self.active(r,outputs=o,status='RUNNING',next_action='RESEARCH')

@@ -6,6 +6,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
+try:
+    from artifact_schema import validate_artifact
+except ModuleNotFoundError:  # pragma: no cover - supports test module loading
+    from hooks.artifact_schema import validate_artifact
+
 ISSUE_RE=re.compile(r'^ISSUE-\d{4}-\d{4}$')
 RUN_RE=re.compile(r'^RUN-\d{8}-\d{4}$')
 ALLOWED_RESEARCH_MODES={'NONE','LOCAL','WEB'}
@@ -295,6 +300,30 @@ def pre_decision(root:Path)->Result:
             if not isinstance(parsed,dict):raise ValueError('root must be object')
         except Exception as e:
             fs.append(Finding('FAIL','OUTPUT_JSON_INVALID',f'Invalid JSON for {k}: {e}',str(fp)))
+            continue
+        attempt_match=re.search(r'(?:^|[\\/])attempt-(\\d+)(?:[\\/]|$)',str(fp))
+        expected_attempt=int(attempt_match.group(1)) if attempt_match else None
+        for issue in validate_artifact(
+            parsed,
+            expected_issue_id=data.get('issue_id'),
+            expected_run_id=data.get('run_id'),
+            expected_attempt=expected_attempt,
+        ):
+            fs.append(Finding('FAIL',f'ARTIFACT_{issue.code}',issue.message,str(fp)))
+        for ref_field in ('input_refs','output_refs'):
+            refs=parsed.get(ref_field)
+            if not isinstance(refs,list):
+                continue
+            for ref in refs:
+                if not isinstance(ref,str) or not ref.strip() or '..' in Path(ref).parts:
+                    continue
+                ref_path=(root/ref).resolve()
+                try:
+                    ref_path.relative_to(root.resolve())
+                except ValueError:
+                    continue
+                if not ref_path.is_file():
+                    fs.append(Finding('FAIL','ARTIFACT_REF_MISSING',f'{ref_field} references a missing file.',str(ref_path)))
     if data.get('content_audit_required') is True and stage in {'final-synthesis'} and not outputs.get('content_audit'):
         fs.append(Finding('FAIL','CONTENT_AUDIT_MISSING','Required content audit missing.'))
     content_audit_result=None
