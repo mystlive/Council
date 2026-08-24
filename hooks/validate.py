@@ -10,6 +10,10 @@ try:
     from artifact_schema import validate_artifact
 except ModuleNotFoundError:  # pragma: no cover - supports test module loading
     from hooks.artifact_schema import validate_artifact
+try:
+    from audit_store import audit_result_was_rewritten, is_audit_artifact
+except ModuleNotFoundError:  # pragma: no cover - supports test module loading
+    from hooks.audit_store import audit_result_was_rewritten, is_audit_artifact
 
 ISSUE_RE=re.compile(r'^ISSUE-\d{4}-\d{4}$')
 RUN_RE=re.compile(r'^RUN-\d{8}-\d{4}$')
@@ -195,6 +199,8 @@ def pre_tool(root:Path,data:Mapping[str,Any])->Result:
     fs=[]; name=data.get('tool_name'); ti=data.get('tool_input') if isinstance(data.get('tool_input'),Mapping) else {}
     if name in {'Write','Edit','MultiEdit','NotebookEdit'}:
         p=target(root,data)
+        if p and is_audit_artifact(p,root) and p.exists():
+            fs.append(Finding('BLOCK','AUDIT_ARTIFACT_REWRITE','Existing content-audit artifacts are append-only.',str(p)))
         if p and p.name in PROTECTED:
             granted,mfindings=check_maintenance_approval(root,p.name)
             if not granted:
@@ -211,6 +217,12 @@ def pre_tool(root:Path,data:Mapping[str,Any])->Result:
             if any(rx.search(cmd) for rx in DESTRUCTIVE):
                 fs.append(Finding('BLOCK','DESTRUCTIVE_COMMAND','Potentially destructive command requires human approval.'))
             write_like = re.search(r'(?:>|>>|tee\s+|sed\s+-i|perl\s+-i|python[^\n]*(?:write_text|open\s*\()|Set-Content|Add-Content|Out-File|WriteAllText|WriteAllLines)', cmd, re.I)
+            if write_like:
+                for part in re.findall(r'[^\s"\']+', cmd):
+                    candidate=Path(part.strip('()'))
+                    if is_audit_artifact(candidate if candidate.is_absolute() else root/candidate,root) and (candidate if candidate.is_absolute() else root/candidate).exists():
+                        fs.append(Finding('BLOCK','AUDIT_ARTIFACT_REWRITE','Existing content-audit artifacts are append-only.'))
+                        break
             if write_like:
                 for pname in PROTECTED:
                     if re.search(rf'(?<![A-Za-z0-9_.-]){re.escape(pname)}(?![A-Za-z0-9_.-])', cmd, re.I):
@@ -334,6 +346,8 @@ def pre_decision(root:Path)->Result:
             try:
                 ca_parsed=json.loads(ca_fp.read_text(encoding='utf-8'))
                 if isinstance(ca_parsed,dict):content_audit_result=ca_parsed.get('result')
+                if isinstance(ca_parsed,dict) and audit_result_was_rewritten(ca_parsed):
+                    fs.append(Finding('BLOCK','AUDIT_RESULT_REWRITTEN','content-audit final result hides an unresolved earlier audit pass.',str(ca_fp)))
             except Exception:
                 pass
     budget=data.get('deliberation_budget',{})

@@ -64,6 +64,16 @@ class T(unittest.TestCase):
    r=Path(d);p=Path(self.artifact(r,'i'));data=json.loads(p.read_text(encoding='utf-8'));data['input_refs']=['../secret.json'];p.write_text(json.dumps(data),encoding='utf-8')
    self.active(r,outputs={'issue_intake':str(p),'chair_review':str(p)})
    x=m.pre_decision(r);self.assertTrue(any(f.code=='ARTIFACT_REF_UNSAFE' for f in x.findings))
+ def test_existing_audit_artifact_is_append_only(self):
+  with tempfile.TemporaryDirectory() as d:
+   r=Path(d);p=r/'runs'/'private'/'RUN-20260722-0001'/'attempt-01'/'content_audit-01.json';p.parent.mkdir(parents=True,exist_ok=True);p.write_text('{}',encoding='utf-8')
+   x=m.pre_tool(r,{'tool_name':'Write','tool_input':{'file_path':str(p),'content':'{}'}})
+   self.assertEqual(x.result,'BLOCK');self.assertTrue(any(f.code=='AUDIT_ARTIFACT_REWRITE' for f in x.findings))
+ def test_legacy_rewritten_audit_result_is_blocked(self):
+  with tempfile.TemporaryDirectory() as d:
+   r=Path(d);p=Path(self.artifact_json(r,'ca',{'result':'PASS_WITH_WARNINGS','audit_passes':[{'pass':1,'result':'REVISE'}]}));self.active(r,stage='final-synthesis',status='CONDITIONAL_COMPLETION',next_action='COMPLETE',outputs=self.final_outputs(r))
+   data=json.loads((r/'.council'/'active_run.json').read_text(encoding='utf-8'));data['outputs']['content_audit']=str(p);(r/'.council'/'active_run.json').write_text(json.dumps(data),encoding='utf-8')
+   x=m.pre_decision(r);self.assertTrue(any(f.code=='AUDIT_RESULT_REWRITTEN' for f in x.findings))
  def test_unknown_does_not_require_human(self):
   with tempfile.TemporaryDirectory() as d:
    r=Path(d);o={'issue_intake':self.artifact(r,'i'),'chair_review':self.artifact(r,'c')};self.active(r,outputs=o,status='RUNNING',next_action='RESEARCH')
