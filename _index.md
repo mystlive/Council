@@ -16,7 +16,7 @@
 
 | 役割 | 定義 | 状態 |
 |---|---|---|
-| 実行基盤硬化 | [runtime-hardening-design.md](docs/runtime-hardening-design.md) | 進行中、設計提案 |
+| 実行基盤硬化 | [runtime-hardening-design.md](docs/runtime-hardening-design.md) | 進行中、ハイブリッド証跡を採用 |
 | 既存PoC運用 | [STATE.md](STATE.md) | 確定 |
 
 ## 状態の読み方

@@ -1,6 +1,6 @@
 {
-  ".gitignore": "583653635682f64eaa498c3a5a073dc7474f69bbe0a5a2cf2ebcda726ca54ca3",
-  "_index.md": "3cda2cc1f2d875cf27ef390ef33a352a02e993bdc173f2431e5f7f0f4dfc75c5",
+  ".gitignore": "99dee88457e375d7aa4701dfacf4808fd8c6a4f1e2dd9f1533af2ae9226eeb3c",
+  "_index.md": "273e75f2040bcb4e61289861a97214b61cb43f3e26bb843dbd6a23133ca6677c",
   ".claude/agents/chair.md": "63bcd25912ea4a694846d2e56d4a20cdff5d83cc965d7762caa2566efffc9d08",
   ".claude/agents/content-auditor.md": "cb9dd400312ed86e48994749242f723689e260efe09db533419354713a2f2572",
   ".claude/agents/council-orchestrator.md": "4a9a491a377ac721863aa0cac6375f470d8c9558b3ddf90205ec8fb72b2af62e",
@@ -49,7 +49,7 @@
   "STATE.md": "cc2ef0ab20f0a5286cb2ad62d5e8d1e7f4254f65823f9325b5a1146b095c5fff",
   "WEB_RESEARCH_RULES.md": "9ff342b970591eb02ec09af11237e2d818a80726a8f77a072e9c4edceabd5f3c",
   "docs/CLAUDE_CODE_POC_DESIGN.md": "a71759e41afda1ebfc087cb2fce026333116c795374879eb947590853e58516b",
-  "docs/runtime-hardening-design.md": "657c35645a221831f5cbd4753aa6efd5c324013bb0fb5933bc9a3175c432e783",
+  "docs/runtime-hardening-design.md": "f4bd483a2759826f850a8c50b197ba2d9f75a38f4f5f1c4a45daaf68d32d99ca",
   "evidence/private/.gitkeep": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "hooks/README.md": "b8e041d956c58b2114032ddd7eb7357f350dd31f9a9859b5cd41e38481cf2c91",
   "hooks/self_review.py": "c60d48897fbd75d52f7dff784bd88d9c0176b7d3fe9acf537b8db30d8d925ec1",
@@ -57,6 +57,8 @@
   "hooks/audit_store.py": "452df4c073e36d45679bc665bdd8fa0c412a01c6839fa963f1ec7c859dc1ba97",
   "hooks/id_allocator.py": "ec322db3d261f8fe60009b0087837a3813eace33b853331dd6be1563063cc751",
   "hooks/tests/test_audit_store.py": "72fe8d80300eb7e7312d95651195c11de5d6e990782c4adfdd751695cf81f5a6",
+  "hooks/provenance.py": "85b5d1c456f417ad23673b2dd0d5e4e0f91a6d95e7a38e1992a72bb327bc3a52",
+  "hooks/tests/test_provenance.py": "5713567dd4bc107076806f17b3aa127416388858bc22695ad4fe37e0dd80612b",
   "hooks/tests/test_id_allocator.py": "6a0c28921aa23795dc7d9b70fefa673679486a6286a8802bff2a65d9a2b37bd8",
   "hooks/tests/test_validate.py": "bb0deae128e2a462539684adfcf7fc28b80306daf51b9826b943725dcdb03742",
   "hooks/validate.py": "faa1a798c771957d767c91fee1f4187f47f206e80aacb3d63a3a268cff30d169",
@@ -65,5 +67,6 @@
   "records/adopted/DEC-2026-0001.md": "5ef57558330c99771ee2130630b3793019e0b55e2821e6d1df136df1819b7042",
   "records/pending/.gitkeep": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "records/rejected/.gitkeep": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-  "runs/private/.gitkeep": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  "runs/private/.gitkeep": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "runs/public/.gitkeep": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 }
