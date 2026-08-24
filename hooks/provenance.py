@@ -19,6 +19,7 @@ except ModuleNotFoundError:  # pragma: no cover - supports package imports in te
 RUN_RE = re.compile(r"^RUN-\d{8}-\d{4}$")
 ISSUE_RE = re.compile(r"^ISSUE-\d{4}-\d{4}$")
 PUBLIC_ALLOWED_KEYS = {
+    "provider",
     "runner_version",
     "provenance_version",
     "status",
@@ -42,6 +43,10 @@ FORBIDDEN_PUBLIC_TOKENS = {
     "personal",
     "private",
 }
+SUPPORTED_PROVIDERS = {"codex", "orcarouter"}
+PRIVATE_FORBIDDEN_TOKENS = {"prompt", "response", "output", "api_key", "authorization", "secret"}
+USAGE_KEYS = {"input_tokens", "output_tokens", "total_tokens"}
+COST_KEYS = {"amount", "currency", "rate_card_version", "estimated"}
 
 
 def sha256_file(path: Path) -> str:
@@ -88,6 +93,8 @@ def sanitize_public_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     if forbidden:
         raise ValueError(f"public manifest contains a forbidden field: {forbidden}")
     result = dict(payload)
+    if "provider" in result and result["provider"] not in SUPPORTED_PROVIDERS:
+        raise ValueError("provider must be codex or orcarouter")
     hashes = result.get("artifact_hashes", [])
     if not isinstance(hashes, list):
         raise ValueError("artifact_hashes must be an array")
@@ -97,6 +104,53 @@ def sanitize_public_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
         if not isinstance(item["name"], str) or not isinstance(item["sha256"], str) or not re.fullmatch(r"[0-9a-f]{64}", item["sha256"]):
             raise ValueError("artifact_hashes entries must contain a name and lowercase SHA-256")
     return result
+
+
+def _contains_private_forbidden_key(value: Any) -> str | None:
+    if isinstance(value, Mapping):
+        for key, nested in value.items():
+            lowered = str(key).lower()
+            if lowered in USAGE_KEYS:
+                continue
+            if any(token in lowered for token in PRIVATE_FORBIDDEN_TOKENS):
+                return str(key)
+            found = _contains_private_forbidden_key(nested)
+            if found:
+                return found
+    elif isinstance(value, list):
+        for nested in value:
+            found = _contains_private_forbidden_key(nested)
+            if found:
+                return found
+    return None
+
+
+def validate_private_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Validate non-content provider metadata kept in the private manifest."""
+    if not isinstance(payload, Mapping):
+        raise ValueError("private manifest payload must be an object")
+    forbidden = _contains_private_forbidden_key(payload)
+    if forbidden:
+        raise ValueError(f"private manifest contains raw content field: {forbidden}")
+    provider = payload.get("provider")
+    if provider not in SUPPORTED_PROVIDERS:
+        raise ValueError("private manifest provider must be codex or orcarouter")
+    if "model" in payload and (not isinstance(payload["model"], str) or not payload["model"].strip()):
+        raise ValueError("private manifest model must be a non-empty string")
+    usage = payload.get("usage", {})
+    if not isinstance(usage, Mapping) or set(usage) - USAGE_KEYS:
+        raise ValueError("usage must contain only token count fields")
+    for key, value in usage.items():
+        if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+            raise ValueError(f"usage.{key} must be a non-negative integer")
+    cost = payload.get("cost", {})
+    if not isinstance(cost, Mapping) or set(cost) - COST_KEYS:
+        raise ValueError("cost contains an undeclared field")
+    if "amount" in cost and cost["amount"] != "UNKNOWN" and not isinstance(cost["amount"], (int, float)):
+        raise ValueError("cost.amount must be numeric or UNKNOWN")
+    if "estimated" in cost and not isinstance(cost["estimated"], bool):
+        raise ValueError("cost.estimated must be boolean")
+    return dict(payload)
 
 
 def _write_exclusive(path: Path, value: Mapping[str, Any]) -> None:
@@ -118,8 +172,7 @@ def write_manifests(
 ) -> tuple[Path, Path]:
     """Create immutable public and private manifests as one logical operation."""
     _validate_identity(run_id, issue_id, attempt)
-    if not isinstance(private_payload, Mapping):
-        raise ValueError("private manifest payload must be an object")
+    private_payload = validate_private_payload(private_payload)
     public = sanitize_public_payload(public_payload)
     timestamp = generated_at or datetime.now(timezone.utc).isoformat()
     root = root.resolve()
