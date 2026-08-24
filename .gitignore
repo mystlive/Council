@@ -17,5 +17,9 @@ runs/private/
 .council/active_run.json
 .council/maintenance_approval.json
 .council/maintenance_log.json
+.council/id_registry.lock
+.council/provenance.lock
+.council/runner.lock
+.council/retention_deletion_approval.json
 __pycache__/
 *.pyc

@@ -6,6 +6,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
+try:
+    from artifact_schema import validate_artifact
+except ModuleNotFoundError:  # pragma: no cover - supports test module loading
+    from hooks.artifact_schema import validate_artifact
+try:
+    from audit_store import audit_result_was_rewritten, is_audit_artifact
+except ModuleNotFoundError:  # pragma: no cover - supports test module loading
+    from hooks.audit_store import audit_result_was_rewritten, is_audit_artifact
+
 ISSUE_RE=re.compile(r'^ISSUE-\d{4}-\d{4}$')
 RUN_RE=re.compile(r'^RUN-\d{8}-\d{4}$')
 ALLOWED_RESEARCH_MODES={'NONE','LOCAL','WEB'}
@@ -190,6 +199,8 @@ def pre_tool(root:Path,data:Mapping[str,Any])->Result:
     fs=[]; name=data.get('tool_name'); ti=data.get('tool_input') if isinstance(data.get('tool_input'),Mapping) else {}
     if name in {'Write','Edit','MultiEdit','NotebookEdit'}:
         p=target(root,data)
+        if p and is_audit_artifact(p,root) and p.exists():
+            fs.append(Finding('BLOCK','AUDIT_ARTIFACT_REWRITE','Existing content-audit artifacts are append-only.',str(p)))
         if p and p.name in PROTECTED:
             granted,mfindings=check_maintenance_approval(root,p.name)
             if not granted:
@@ -206,6 +217,12 @@ def pre_tool(root:Path,data:Mapping[str,Any])->Result:
             if any(rx.search(cmd) for rx in DESTRUCTIVE):
                 fs.append(Finding('BLOCK','DESTRUCTIVE_COMMAND','Potentially destructive command requires human approval.'))
             write_like = re.search(r'(?:>|>>|tee\s+|sed\s+-i|perl\s+-i|python[^\n]*(?:write_text|open\s*\()|Set-Content|Add-Content|Out-File|WriteAllText|WriteAllLines)', cmd, re.I)
+            if write_like:
+                for part in re.findall(r'[^\s"\']+', cmd):
+                    candidate=Path(part.strip('()'))
+                    if is_audit_artifact(candidate if candidate.is_absolute() else root/candidate,root) and (candidate if candidate.is_absolute() else root/candidate).exists():
+                        fs.append(Finding('BLOCK','AUDIT_ARTIFACT_REWRITE','Existing content-audit artifacts are append-only.'))
+                        break
             if write_like:
                 for pname in PROTECTED:
                     if re.search(rf'(?<![A-Za-z0-9_.-]){re.escape(pname)}(?![A-Za-z0-9_.-])', cmd, re.I):
@@ -295,6 +312,30 @@ def pre_decision(root:Path)->Result:
             if not isinstance(parsed,dict):raise ValueError('root must be object')
         except Exception as e:
             fs.append(Finding('FAIL','OUTPUT_JSON_INVALID',f'Invalid JSON for {k}: {e}',str(fp)))
+            continue
+        attempt_match=re.search(r'(?:^|[\\/])attempt-(\\d+)(?:[\\/]|$)',str(fp))
+        expected_attempt=int(attempt_match.group(1)) if attempt_match else None
+        for issue in validate_artifact(
+            parsed,
+            expected_issue_id=data.get('issue_id'),
+            expected_run_id=data.get('run_id'),
+            expected_attempt=expected_attempt,
+        ):
+            fs.append(Finding('FAIL',f'ARTIFACT_{issue.code}',issue.message,str(fp)))
+        for ref_field in ('input_refs','output_refs'):
+            refs=parsed.get(ref_field)
+            if not isinstance(refs,list):
+                continue
+            for ref in refs:
+                if not isinstance(ref,str) or not ref.strip() or '..' in Path(ref).parts:
+                    continue
+                ref_path=(root/ref).resolve()
+                try:
+                    ref_path.relative_to(root.resolve())
+                except ValueError:
+                    continue
+                if not ref_path.is_file():
+                    fs.append(Finding('FAIL','ARTIFACT_REF_MISSING',f'{ref_field} references a missing file.',str(ref_path)))
     if data.get('content_audit_required') is True and stage in {'final-synthesis'} and not outputs.get('content_audit'):
         fs.append(Finding('FAIL','CONTENT_AUDIT_MISSING','Required content audit missing.'))
     content_audit_result=None
@@ -305,6 +346,8 @@ def pre_decision(root:Path)->Result:
             try:
                 ca_parsed=json.loads(ca_fp.read_text(encoding='utf-8'))
                 if isinstance(ca_parsed,dict):content_audit_result=ca_parsed.get('result')
+                if isinstance(ca_parsed,dict) and audit_result_was_rewritten(ca_parsed):
+                    fs.append(Finding('BLOCK','AUDIT_RESULT_REWRITTEN','content-audit final result hides an unresolved earlier audit pass.',str(ca_fp)))
             except Exception:
                 pass
     budget=data.get('deliberation_budget',{})
