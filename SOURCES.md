@@ -432,3 +432,32 @@ RUN-20260929-0001 の調査・追加調査・補足調査で取得。取得日�
 | SRC-2026-0124 | primary | https://docs.orcarouter.ai/operations/data-handling.md ; https://orcarouter.ai ; https://github.com/Continuum-AI-Corp/OrcaRouter-Lite | 日付表示なし（/privacy 404） | PARTIAL |
 
 関連ISSUE-ID: ISSUE-2026-0003。関連DECISION-ID: DEC-2026-0002〜0008。
+
+## 21. 登録済み出典（ISSUE-2026-0001 採否確定前の鮮度再確認）
+
+2026-09-29 取得。照合方法と CLAIM 対応は `runs/private/RUN-20260725-0001/attempt-01/freshness_recheck.json`。前回 SRC-2026-0020（package-lock.json）は利用者環境で解決される版の根拠として不適切と判明（SRC-2026-0141）。SRC-2026-0001・0003 の Star/Fork 0 は古くなった（SRC-2026-0125、0126、0130）。
+
+| SRC-ID | 一次/二次 | URL | 対象バージョン・日付 |
+|---|---|---|---|
+| SRC-2026-0125 | primary | https://api.github.com/repos/zareefahmed/ailane | pushed_at 2026-07-19T12:22:54Z |
+| SRC-2026-0126 | primary | https://github.com/zareefahmed/ailane | main（11 commits） |
+| SRC-2026-0127 | primary | https://api.github.com/repos/zareefahmed/ailane/commits?per_page=10 | HEAD 17fb665（2026-07-19） |
+| SRC-2026-0128 | primary | https://api.github.com/repos/zareefahmed/ailane/issues?state=all&per_page=50 | Issue・PR・Release 0件 |
+| SRC-2026-0129 | secondary | https://www.zareef.com/ailane | Web 検索結果（作者ページ） |
+| SRC-2026-0130 | primary | https://api.github.com/repos/zareefahmed/ailane/forks | ArshaanAhmed/ailane 2026-09-21 |
+| SRC-2026-0131 | primary | https://api.github.com/users/zareefahmed/events/public?per_page=30 | 最新 2026-09-02 |
+| SRC-2026-0132 | primary | https://registry.npmjs.org/ailane | latest 0.1.3、_hasShrinkwrap=false |
+| SRC-2026-0133 | primary | https://api.npmjs.org/downloads/point/2026-07-25:2026-09-28/ailane | 124（07-03〜07-24 は 652） |
+| SRC-2026-0134 | primary | https://raw.githubusercontent.com/zareefahmed/ailane/main/package.json | v0.1.3 |
+| SRC-2026-0135 | primary | https://raw.githubusercontent.com/zareefahmed/ailane/main/src/lib/sysinfo.ts | HEAD 17fb665 |
+| SRC-2026-0136 | primary | https://github.com/advisories?query=affects%3Asysteminformation | 最新 GHSA-5xpp（published 2026-06-05） |
+| SRC-2026-0137 | primary | https://github.com/sebhildebrandt/systeminformation/security/advisories | 10件（前回と同数） |
+| SRC-2026-0138 | primary | https://services.nvd.nist.gov/rest/json/cves/2.0?keywordSearch=systeminformation&pubStartDate=2026-07-25T00:00:00.000&pubEndDate=2026-09-29T23:59:59.999 | totalResults=0 |
+| SRC-2026-0139 | primary | https://osv.dev/list?ecosystem=npm&q=systeminformation | 新規なし |
+| SRC-2026-0140 | primary | https://raw.githubusercontent.com/sebhildebrandt/systeminformation/master/CHANGELOG.md | 5.33.14（2026-09-28） |
+| SRC-2026-0141 | primary | https://docs.npmjs.com/cli/v11/configuring-npm/package-lock-json | npm CLI v11 文書 |
+| SRC-2026-0142 | primary | https://raw.githubusercontent.com/ollama/ollama/main/docs/api.md | main 2026-09-29 |
+| SRC-2026-0143 | primary | https://lmstudio.ai/docs/cli/load | --estimate-only は 0.3.27（2025-09-24） |
+| SRC-2026-0144 | primary | https://pypi.org/project/nvitop/#history | nvitop 1.7.1（2026-07-10）、gpustat 1.1.1（2023-08-22） |
+
+関連ISSUE-ID: ISSUE-2026-0001。関連DECISION-ID: DEC-2026-0009、DEC-2026-0010。

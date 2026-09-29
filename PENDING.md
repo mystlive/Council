@@ -144,3 +144,4 @@ moved_from:
 - [DEC-2026-0005](records/pending/DEC-2026-0005.md) — 異種モデルによる反証・監査の追加意見（ISSUE-2026-0003、IMP-09）。外部送信承認待ち
 - [DEC-2026-0006](records/pending/DEC-2026-0006.md) — ローカルLLMの限定パイロット（ISSUE-2026-0003、IMP-13）。機密議題の発生と OLLAMA_HOST 是正待ち
 - [DEC-2026-0007](records/pending/DEC-2026-0007.md) — 見逃しコーパスによる評価ハーネス（ISSUE-2026-0003、IMP-12）。再検討期限 2026-12-31
+- [DEC-2026-0009](records/pending/DEC-2026-0009.md) — ailane の限定試験導入（ISSUE-2026-0001）。ローカルLLMの利用開始待ち、再検討期限 2027-03-31
