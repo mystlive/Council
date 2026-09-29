@@ -115,3 +115,5 @@ review_condition: ""
 ## 7. 現在の正式決定
 
 - [DEC-2026-0001](records/adopted/DEC-2026-0001.md) — 評議会システムへの視点転換・自己点検の低コスト施策の部分採用（ISSUE-2026-0002）、status: ADOPTED
+- [DEC-2026-0002](records/adopted/DEC-2026-0002.md) — 検査・運用の欠陥修正と実行記録基盤（ISSUE-2026-0003 フェーズ1）、status: ADOPTED
+- [DEC-2026-0003](records/adopted/DEC-2026-0003.md) — 最新モデル活用の低リスク項目と runtime hardening モジュールの扱い（ISSUE-2026-0003 フェーズ2の一部）、status: ADOPTED

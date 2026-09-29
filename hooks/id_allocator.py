@@ -75,6 +75,23 @@ def _atomic_write(path: Path, value: dict[str, int]) -> None:
     os.replace(temporary, path)
 
 
+def _allocate_run(registry: dict[str, int], root: Path, moment: datetime) -> str:
+    """RUN-IDs use the local date and a per-day sequence (RUN-YYYYMMDD-NNNN), matching the
+    format that validate.py, artifact_schema.py, audit_store.py and provenance.py require.
+    ``RUN`` keeps the all-time count; ``RUNDAY``/``RUNSEQ`` hold the per-day sequence."""
+    day = int(moment.strftime("%Y%m%d"))
+    sequence = registry.get("RUNSEQ", 0) if registry.get("RUNDAY") == day else 0
+    while True:
+        sequence += 1
+        run_id = f"RUN-{day:08d}-{sequence:04d}"
+        if not (root / "runs" / "private" / run_id).exists():
+            break
+    registry["RUNDAY"] = day
+    registry["RUNSEQ"] = sequence
+    registry["RUN"] = registry.get("RUN", 0) + 1
+    return run_id
+
+
 def allocate(kind: str, *, root: Path = Path("."), now: datetime | None = None) -> str:
     """Allocate and persist the next identifier for ``kind``."""
     normalized = kind.upper()
@@ -83,14 +100,18 @@ def allocate(kind: str, *, root: Path = Path("."), now: datetime | None = None) 
     root = root.resolve()
     registry_path = root / REGISTRY_NAME
     lock_path = root / LOCK_RELATIVE
+    moment = now or datetime.now(timezone.utc).astimezone()
     with _exclusive_lock(lock_path):
         registry = _load_registry(registry_path)
+        if normalized == "RUN":
+            run_id = _allocate_run(registry, root, moment)
+            _atomic_write(registry_path, registry)
+            return run_id
         next_number = registry.get(normalized, 0) + 1
         registry[normalized] = next_number
         _atomic_write(registry_path, registry)
-    year = (now or datetime.now(timezone.utc)).year
     prefix = KINDS[normalized]
-    return f"{prefix}-{year:04d}-{next_number:04d}"
+    return f"{prefix}-{moment.year:04d}-{next_number:04d}"
 
 
 def main(argv: list[str] | None = None) -> int:

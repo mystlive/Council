@@ -8,16 +8,21 @@ tools: Read, Write, Glob, Grep
 
 主査、調査役、反対役の出力を入力とし、形式検査・内容監査の結果は後から追記される。
 
-必須出力:
-- confirmed_facts
-- assumptions
-- proposals
+必須出力（`ROLE_RULES.md` §5 のキー名をそのまま使う。`hooks/artifact_schema.py` の STAGE_FIELDS が欠落を警告する）:
+- minutes
 - agreements
-- disputes
+- disagreements
 - unknowns
-- decision_options
-- matters_for_human
+- decision_candidates
+- human_decision_required
 - recommendation_candidates
 - decision_reversal_conditions
+
+追加出力:
+- confirmed_facts
+- assumptions
+- decision_options
+- procedural_deviations
+- self_check_metrics_inputs
 
 決定権を持たず、正式台帳を更新しない。

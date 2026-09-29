@@ -68,6 +68,27 @@ def append_audit(
             return destination
 
 
+def latest_audit(attempt_dir: Path) -> tuple[Path, dict[str, Any]] | None:
+    """Return the newest audit pass in ``attempt_dir`` (legacy content_audit.json counts as pass 0)."""
+    newest: tuple[int, Path, dict[str, Any]] | None = None
+    if not attempt_dir.is_dir():
+        return None
+    for path in attempt_dir.iterdir():
+        match = AUDIT_NAME_RE.fullmatch(path.name)
+        if not match or not path.is_file():
+            continue
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(payload, dict):
+            continue
+        sequence = int(match.group(1)) if match.group(1) else 0
+        if newest is None or sequence > newest[0]:
+            newest = (sequence, path, payload)
+    return (newest[1], newest[2]) if newest else None
+
+
 def audit_result_was_rewritten(payload: Mapping[str, Any]) -> bool:
     """Detect a legacy record whose final result hides an unresolved last pass."""
     passes = payload.get("audit_passes")

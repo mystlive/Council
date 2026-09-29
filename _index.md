@@ -16,7 +16,7 @@
 
 | 役割 | 定義 | 状態 |
 |---|---|---|
-| 実行基盤硬化 | [runtime-hardening-design.md](docs/runtime-hardening-design.md) | 実装済み、運用検証待ち。Provider・保持期間・メタデータ粒度を確定 |
+| 実行基盤硬化 | [runtime-hardening-design.md](docs/runtime-hardening-design.md) | runner・監査ストアは運用に接続済み（2026-09-29）。provider_adapterはCodexのみ維持、OrcaRouter・provenance・retention・source_snapshot・record_updateは凍結 |
 | 既存PoC運用 | [STATE.md](STATE.md) | 確定 |
 
 ## 状態の読み方

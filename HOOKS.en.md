@@ -13,19 +13,34 @@ Mechanically check required deliverables, state transitions, limited human stops
 - The private directories
 - The ignore state when Git is in use
 - The ID registry
+- Refreshing the protected-file hash baseline (changes since the previous session are warned)
+- Recording the running Claude Code version, entrypoint, session effort, and each Subagent's model/effort (`.council/runtime_fingerprint.json`); a version change and `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` are warned
 
-### pre-tool-use (PreToolUse)
+### pre-tool-use (PreToolUse: Write/Edit family, Bash, PowerShell)
 - Changes to protected files via Write/Edit-family tools
-- Writes to protected files via Bash
-- Secret patterns
+- Writes to protected files via Bash and PowerShell, judged by redirection targets and write commands (cp, mv, Copy-Item, Set-Content, shutil, write_text, git checkout, etc.); read commands and `2>/dev/null` are not treated as writes
+- Overwriting content-audit artifacts (`content_audit*.json`)
+- Secret patterns, and writes to `.env` and `.env.*` (except .example etc.)
 - Destructive commands
+- Running the protected-file baseline refresh (`refresh-baseline`)
+
+### post-tool-use (PostToolUse: Write/Edit family, Bash, PowerShell)
+- Completing the record of a maintenance-approved change
+- Comparing protected files with the baseline (tool-independent tamper detection; approved changes are folded into the baseline)
+- Validating changes to `active_run.json` with the runner's transition rules and appending to `runs/private/<RUN-ID>/transition_log.jsonl`
 
 ### pre-decision (Stop)
+- Comparing protected files with the baseline
 - The form of `active_run.json`
-- The required deliverables for the step reached so far
+- The required deliverables for the step reached so far, and that artifact paths match their attempt number
+- Missing stage-specific output keys from ROLE_RULES.md (warning)
 - An invalid WAITING_FOR_HUMAN
 - Completion before final-synthesis
-- Deliverables required when a content audit is needed
+- Deliverables required when a content audit is needed, and that `outputs.content_audit` points to the newest audit pass in the same attempt
+- Stopping while RUNNING: blocked, except that a repeated stop without progress in the same continuation chain (`stop_hook_active`) and a RUN unchanged for 24 hours are allowed with a warning
+
+### Human-only operation
+- `python hooks/validate.py refresh-baseline --root .`: refresh the protected-file baseline; running it from Claude is blocked
 
 ## 3. Designed but Not Yet Implemented
 
@@ -57,3 +72,7 @@ UNKNOWN, conflicting evidence, lack of real-machine verification, or low confide
 ## 6. Content Audit
 
 Required when a trigger condition in `ROLE_RULES.md` applies, or when `active_run.json` has `content_audit_required: true`. It may be omitted for an ordinary case.
+
+## 7. Limits
+
+Hooks cannot fully prevent tampering by a process running with the same privileges. Protected-file integrity checks aim at detection.

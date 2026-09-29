@@ -1,6 +1,6 @@
 # Runtime Hardening Design Proposal
 
-状態: 実装済み（正式採用は別途）
+状態: モジュールは実装済み。運用への接続は一部（2026-09-29、§9 参照）
 
 この文書は、既存の評議会PoCを壊さずに、実行制御、成果物検査、証跡、Provider差し替えを段階的に強化するための設計案です。
 
@@ -127,3 +127,19 @@ CLAIMは`CLAIM-ID`と1件以上の`SOURCE-ID`、支持・反証・部分支持�
 2026-08-24、人間の判断によりprivate詳細本文はRUN完了後90日、privateマニフェストは365日保持します。
 
 公開メタデータとハッシュは無期限保持し、削除は自動化せず、期限・法務保留・対象ハッシュを含む削除計画への人間承認を必須とします。
+
+## 9. 運用への接続状況（2026-09-29、ISSUE-2026-0003）
+
+RUN-20260929-0001 の精査で、§3 の目標アーキテクチャは単体モジュールとテストまでで、実運用経路に接続されていないことが確認された。人間の指示（AI提案に基づく実装）により、モジュール単位で次のとおり扱う。
+
+| モジュール | 扱い | 接続 |
+|---|---|---|
+| runner.py | 維持・接続 | `start/apply/release` CLI、遷移履歴 `transition_log.jsonl`、PostToolUse Hook による `active_run.json` 変更の検証 |
+| audit_store.py | 維持・接続 | `content_audit-NN.json` の追記保存、pre-decision が最新の監査パスを列挙して検査 |
+| artifact_schema.py | 維持・拡張 | ROLE_RULES.md の工程別出力キーの欠落を警告（STAGE_FIELDS） |
+| id_allocator.py | 維持・修正 | RUN-ID を `RUN-YYYYMMDD-NNNN`（日単位採番）に統一 |
+| raw_output.py | 新規 | Subagent 返却テキストの改変なし保存と SHA-256 記録 |
+| provider_adapter.py | Codex のみ維持 | プロンプトを stdin 渡し、sandbox を明示（`danger-full-access` は拒否）。OrcaRouter は凍結 |
+| provenance.py / retention.py / source_snapshot.py / record_update.py | 凍結 | 拡張しない（削除もしない）。provider 経路が実運用された時点で再評価 |
+
+この同期時点でHookテストは93件です。
