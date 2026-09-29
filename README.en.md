@@ -86,7 +86,12 @@ This is not a claim of being wholly novel, a world first, or proven superior to 
 
 Runtime hardening is in progress.
 
-- Codex CLI and OrcaRouter are available as Provider Adapters
+- Codex CLI is available as a Provider Adapter (prompt on stdin, explicit sandbox; the OrcaRouter adapter is frozen)
+- Stage transitions are applied with `hooks/runner.py start|apply|release` and recorded in `runs/private/<RUN-ID>/transition_log.jsonl`; direct edits of `active_run.json` are checked by the PostToolUse hook with the same rules
+- Bash and PowerShell commands are checked in addition to Write/Edit tools, and protected files are compared with a session-start hash baseline (tool-independent tamper detection)
+- Stopping while a RUN is RUNNING is blocked, but a repeated stop without progress is allowed so waiting on background work does not loop
+- The running Claude Code version and each Subagent's model/effort are recorded per session
+- Subagent returns can be saved unchanged with a SHA-256 record (`hooks/raw_output.py`)
 - RUN transitions, budgets, and artifact envelopes are checked deterministically
 - Public and private manifests are separated and linked by a hash
 - Formal record updates require time-limited human approval, a diff, and a pre-change hash

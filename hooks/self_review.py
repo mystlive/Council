@@ -37,7 +37,8 @@ def main():
       bad=[]
       for rel,h in man.items():
         p=r/rel
-        if not p.is_file() or hashlib.sha256(p.read_bytes()).hexdigest()!=h:bad.append(rel)
+        # CRLF is normalized to LF so git autocrlf checkouts do not break the manifest.
+        if not p.is_file() or hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()!=h:bad.append(rel)
       check('manifest_integrity',not bad,','.join(bad))
     except Exception as e:check('manifest_integrity',False,str(e))
     score=round(100*sum(c['ok'] for c in CHECKS)/len(CHECKS))

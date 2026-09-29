@@ -31,6 +31,18 @@ class TestIdAllocator(unittest.TestCase):
             self.assertEqual(allocate("issue", root=root), "ISSUE-2026-0003")
             self.assertEqual(allocate("claim", root=root), "CLAIM-2026-0031")
 
+    def test_run_ids_use_date_and_daily_sequence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.project(root)
+            day1 = datetime(2026, 9, 29, 10, tzinfo=timezone.utc)
+            self.assertEqual(allocate("run", root=root, now=day1), "RUN-20260929-0001")
+            (root / "runs" / "private" / "RUN-20260929-0002").mkdir(parents=True)
+            self.assertEqual(allocate("run", root=root, now=day1), "RUN-20260929-0003")
+            self.assertEqual(allocate("run", root=root, now=datetime(2026, 9, 30, tzinfo=timezone.utc)), "RUN-20260930-0001")
+            registry = json.loads((root / "id_registry.json").read_text(encoding="utf-8"))
+            self.assertEqual((registry["RUN"], registry["RUNDAY"], registry["RUNSEQ"]), (5, 20260930, 1))
+
     def test_unknown_kind_is_rejected_without_mutation(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

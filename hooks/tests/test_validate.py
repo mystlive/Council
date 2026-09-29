@@ -1,6 +1,7 @@
-import hashlib,importlib.util,json,sys,tempfile,unittest
+import hashlib,importlib.util,json,os,sys,tempfile,time,unittest
 from pathlib import Path
 p=Path(__file__).resolve().parents[1]/'validate.py';s=importlib.util.spec_from_file_location('cv',p);m=importlib.util.module_from_spec(s);sys.modules[s.name]=m;s.loader.exec_module(m)
+from hooks.artifact_schema import STAGE_FIELDS
 class T(unittest.TestCase):
  def project(self,r):
   for n in m.REQUIRED:(r/n).write_text('# x\n',encoding='utf-8')
@@ -14,8 +15,10 @@ class T(unittest.TestCase):
  def artifact_envelope(self,name):
   stages={'i':'issue-intake','c':'chair-review','d':'devil-advocate','s':'secretary','fv':'formal-validation','ca':'content-audit','fs':'final-synthesis'}
   skills={'i':'issue-intake','c':'chair-review','d':'devil-advocate','s':'secretary','fv':'formal-validation','ca':'content-audit','fs':'final-synthesis'}
-  stage=stages.get(name,'research')
-  return {'schema_version':'1.0','skill':skills.get(name,'web-research'),'issue_id':'ISSUE-2026-0001','run_id':'RUN-20260722-0001','attempt':1,'status':'COMPLETED','current_stage':stage,'next_action':'COMPLETE' if stage=='final-synthesis' else 'CONTINUE','escalation':None,'input_refs':[],'output_refs':[],'claims':[],'unknowns':[],'warnings':[],'errors':[]}
+  stage=stages.get(name,'research');skill=skills.get(name,'web-research')
+  d={'schema_version':'1.0','skill':skill,'issue_id':'ISSUE-2026-0001','run_id':'RUN-20260722-0001','attempt':1,'status':'COMPLETED','current_stage':stage,'next_action':'COMPLETE' if stage=='final-synthesis' else 'CONTINUE','escalation':None,'input_refs':[],'output_refs':[],'claims':[],'unknowns':[],'warnings':[],'errors':[]}
+  for f in STAGE_FIELDS.get(skill,()):d.setdefault(f,'x')
+  return d
  def artifact(self,r,name):
   p=r/'runs'/'private'/f'{name}.json';p.parent.mkdir(parents=True,exist_ok=True);p.write_text(json.dumps(self.artifact_envelope(name)),encoding='utf-8');return str(p)
  def artifact_json(self,r,name,obj):
@@ -86,10 +89,138 @@ class T(unittest.TestCase):
   with tempfile.TemporaryDirectory() as d:
    r=Path(d);o={'issue_intake':self.artifact(r,'i')};self.active(r,outputs=o)
    self.assertEqual(m.pre_decision(r).result,'BLOCK')
- def test_powershell_write_to_protected_file_is_blocked(self):
+ def test_powershell_cmdlet_via_bash_to_protected_file_is_blocked(self):
   with tempfile.TemporaryDirectory() as d:
    r=Path(d);data={'tool_name':'Bash','tool_input':{'command':'Set-Content AGENTS.md bad'}}
    self.assertEqual(m.pre_tool(r,data).result,'BLOCK')
+ def test_powershell_tool_write_to_protected_file_is_blocked(self):
+  with tempfile.TemporaryDirectory() as d:
+   r=Path(d)
+   for cmd in ('Set-Content -Path AGENTS.md -Value bad','"x" | Out-File ROLE_RULES.md','Copy-Item evil.md HOOKS.md','echo x > DECISION_RULES.md'):
+    self.assertEqual(m.pre_tool(r,{'tool_name':'PowerShell','tool_input':{'command':cmd}}).result,'BLOCK',cmd)
+ def test_powershell_tool_secret_and_destructive_are_blocked(self):
+  with tempfile.TemporaryDirectory() as d:
+   r=Path(d)
+   self.assertEqual(m.pre_tool(r,{'tool_name':'PowerShell','tool_input':{'command':'Remove-Item -Recurse -Force runs'}}).result,'BLOCK')
+   self.assertEqual(m.pre_tool(r,{'tool_name':'PowerShell','tool_input':{'command':'$k="sk-'+'a'*24+'"'}}).result,'BLOCK')
+ def test_read_commands_naming_protected_files_are_not_writes(self):
+  with tempfile.TemporaryDirectory() as d:
+   r=Path(d)
+   for cmd in ('grep -n BEGIN AGENTS.md ROLE_RULES.md 2>/dev/null','cat SKILL_CONTRACT.md 2>&1 | head','git diff HOOKS.md > /dev/null','python -c "print(open(\'AGENTS.md\').read())"','Get-Content AGENTS.md 2>$null','if [ a -> b ]; then cat MASTER_DESIGN.md; fi'):
+    self.assertEqual(m.pre_tool(r,{'tool_name':'Bash','tool_input':{'command':cmd}}).result,'PASS',cmd)
+ def test_copy_move_and_python_writes_to_protected_file_are_blocked(self):
+  with tempfile.TemporaryDirectory() as d:
+   r=Path(d)
+   for cmd in ('cp /tmp/x AGENTS.md','mv new.md ROLE_RULES.md','python -c "import shutil; shutil.copy(\'x\',\'HOOKS.md\')"','python -c "from pathlib import Path; Path(\'AGENTS.md\').write_text(\'x\')"','git checkout other -- SKILL_CONTRACT.md','sed -i s/a/b/ MASTER_DESIGN.md','cat x >> DECISION_RULES.md'):
+    self.assertEqual(m.pre_tool(r,{'tool_name':'Bash','tool_input':{'command':cmd}}).result,'BLOCK',cmd)
+ def test_redirect_to_audit_artifact_is_blocked(self):
+  with tempfile.TemporaryDirectory() as d:
+   r=Path(d);p=r/'runs'/'private'/'RUN-20260722-0001'/'attempt-01'/'content_audit-01.json';p.parent.mkdir(parents=True,exist_ok=True);p.write_text('{}',encoding='utf-8')
+   x=m.pre_tool(r,{'tool_name':'Bash','tool_input':{'command':'echo {} > runs/private/RUN-20260722-0001/attempt-01/content_audit-01.json'}})
+   self.assertTrue(any(f.code=='AUDIT_ARTIFACT_REWRITE' for f in x.findings))
+ def test_env_variants_are_sensitive(self):
+  with tempfile.TemporaryDirectory() as d:
+   r=Path(d)
+   self.assertEqual(m.pre_tool(r,{'tool_name':'Write','tool_input':{'file_path':str(r/'.env.local'),'content':'x'}}).result,'BLOCK')
+   self.assertEqual(m.pre_tool(r,{'tool_name':'Write','tool_input':{'file_path':str(r/'.env.example'),'content':'x'}}).result,'PASS')
+ def test_additional_secret_formats(self):
+  with tempfile.TemporaryDirectory() as d:
+   r=Path(d)
+   for v in ('AKIA'+'A'*16,'AIza'+'b'*35,'xoxb-'+'1'*12):
+    self.assertEqual(m.pre_tool(r,{'tool_name':'Write','tool_input':{'file_path':str(r/'x.txt'),'content':v}}).result,'BLOCK',v)
+ def test_baseline_refresh_is_human_only(self):
+  with tempfile.TemporaryDirectory() as d:
+   r=Path(d)
+   self.assertEqual(m.pre_tool(r,{'tool_name':'Bash','tool_input':{'command':'python hooks/validate.py refresh-baseline --root .'}}).result,'BLOCK')
+ def test_protected_file_integrity_detects_unapproved_change(self):
+  with tempfile.TemporaryDirectory() as d:
+   r=Path(d);self.project(r);(r/'.council').mkdir(exist_ok=True);m.refresh_baseline(r)
+   (r/'AGENTS.md').write_text('tampered',encoding='utf-8')
+   x=m.post_tool(r,{'tool_name':'PowerShell','tool_input':{'command':'something'}})
+   self.assertEqual(x.result,'BLOCK');self.assertTrue(any(f.code=='PROTECTED_FILE_INTEGRITY' for f in x.findings))
+   self.assertTrue(any(f.code=='PROTECTED_FILE_INTEGRITY' for f in m.pre_decision(r).findings))
+ def test_protected_file_integrity_accepts_approved_maintenance(self):
+  with tempfile.TemporaryDirectory() as d:
+   r=Path(d);self.project(r);(r/'.council').mkdir(exist_ok=True);m.refresh_baseline(r);self.make_approval(r,filename='AGENTS.md')
+   m.pre_tool(r,{'tool_name':'Write','tool_input':{'file_path':str(r/'AGENTS.md'),'content':'x'}})
+   (r/'AGENTS.md').write_text('approved change',encoding='utf-8')
+   x=m.post_tool(r,{'tool_name':'Write','tool_input':{'file_path':str(r/'AGENTS.md'),'content':'x'}})
+   self.assertEqual(x.result,'PASS')
+   self.assertEqual(m.post_tool(r,{'tool_name':'Bash','tool_input':{'command':'ls'}}).result,'PASS')
+ def test_line_ending_only_change_is_not_integrity_violation(self):
+  with tempfile.TemporaryDirectory() as d:
+   r=Path(d);self.project(r);(r/'.council').mkdir(exist_ok=True)
+   (r/'HOOKS.md').write_bytes(b'# x\nline\n');m.refresh_baseline(r)
+   (r/'HOOKS.md').write_bytes(b'# x\r\nline\r\n')
+   self.assertEqual(m.post_tool(r,{'tool_name':'Bash','tool_input':{'command':'git checkout main'}}).result,'PASS')
+ def test_attempt_mismatch_is_detected(self):
+  with tempfile.TemporaryDirectory() as d:
+   r=Path(d);p=r/'runs'/'private'/'RUN-20260722-0001'/'attempt-02'/'issue_intake.json';p.parent.mkdir(parents=True,exist_ok=True)
+   p.write_text(json.dumps(self.artifact_envelope('i')),encoding='utf-8')
+   self.active(r,stage='issue-intake',outputs={'issue_intake':str(p)})
+   self.assertTrue(any(f.code=='ARTIFACT_ATTEMPT_MISMATCH' for f in m.pre_decision(r).findings))
+ def test_budget_bool_is_rejected(self):
+  with tempfile.TemporaryDirectory() as d:
+   r=Path(d);o=self.final_outputs(r)
+   self.active(r,stage='final-synthesis',status='COMPLETED',next_action='COMPLETE',outputs=o)
+   data=json.loads((r/'.council'/'active_run.json').read_text(encoding='utf-8'))
+   data['deliberation_budget']={'max_research_revisions':True,'max_recritiques':2,'max_audit_revisions':2};data['counters']={'research_revisions':0,'recritiques':0,'audit_revisions':0}
+   (r/'.council'/'active_run.json').write_text(json.dumps(data),encoding='utf-8')
+   self.assertTrue(any(f.code=='BUDGET_FIELD_INVALID' for f in m.pre_decision(r).findings))
+ def test_running_stop_allowed_after_block_without_progress(self):
+  with tempfile.TemporaryDirectory() as d:
+   r=Path(d);o={'issue_intake':self.artifact(r,'i')};self.active(r,stage='issue-intake',outputs=o)
+   self.assertEqual(m.pre_decision(r,{'stop_hook_active':False}).result,'BLOCK')
+   x=m.pre_decision(r,{'stop_hook_active':True})
+   self.assertEqual(x.result,'PASS_WITH_WARNINGS');self.assertTrue(any(f.code=='RUN_INCOMPLETE_NO_PROGRESS' for f in x.findings))
+ def test_running_stop_blocked_again_after_progress(self):
+  with tempfile.TemporaryDirectory() as d:
+   r=Path(d);o={'issue_intake':self.artifact(r,'i')};self.active(r,stage='issue-intake',outputs=o)
+   self.assertEqual(m.pre_decision(r,{'stop_hook_active':False}).result,'BLOCK')
+   time.sleep(0.01);self.artifact(r,'c')
+   self.assertEqual(m.pre_decision(r,{'stop_hook_active':True}).result,'BLOCK')
+ def test_stale_running_run_does_not_block(self):
+  with tempfile.TemporaryDirectory() as d:
+   r=Path(d);o={'issue_intake':self.artifact(r,'i')};self.active(r,stage='issue-intake',outputs=o)
+   old=time.time()-m.STALE_RUN_SECONDS-60;os.utime(r/'.council'/'active_run.json',(old,old))
+   x=m.pre_decision(r);self.assertEqual(x.result,'PASS_WITH_WARNINGS');self.assertTrue(any(f.code=='STALE_ACTIVE_RUN' for f in x.findings))
+ def test_newest_audit_pass_is_used(self):
+  with tempfile.TemporaryDirectory() as d:
+   r=Path(d);o=self.final_outputs(r)
+   base=r/'runs'/'private'
+   for n,res in ((1,'PASS'),(2,'REVISE')):
+    a=self.artifact_envelope('ca');a['result']=res;(base/f'content_audit-{n:02d}.json').write_text(json.dumps(a),encoding='utf-8')
+   o['content_audit']=str(base/'content_audit-01.json')
+   self.active(r,stage='final-synthesis',status='CONDITIONAL_COMPLETION',next_action='COMPLETE',outputs=o)
+   codes={f.code for f in m.pre_decision(r).findings}
+   self.assertIn('CONTENT_AUDIT_NOT_LATEST',codes);self.assertIn('CONTENT_AUDIT_UNRESOLVED',codes)
+ def test_active_run_change_is_validated_by_runner(self):
+  with tempfile.TemporaryDirectory() as d:
+   r=Path(d);(r/'.council').mkdir()
+   st={'issue_id':'ISSUE-2026-0001','run_id':'RUN-20260722-0001','research_mode':'NONE','current_stage':'issue-intake','status':'RUNNING','next_action':'CONTINUE','outputs':{},
+       'deliberation_budget':{'max_research_revisions':2,'max_recritiques':2,'max_audit_revisions':2},'counters':{'research_revisions':0,'recritiques':0,'audit_revisions':0}}
+   (r/'.council'/'active_run.json').write_text(json.dumps(st),encoding='utf-8')
+   self.assertEqual(m.post_tool(r,{'tool_name':'Write','tool_input':{}}).result,'PASS')
+   st['current_stage']='secretary';(r/'.council'/'active_run.json').write_text(json.dumps(st),encoding='utf-8')
+   x=m.post_tool(r,{'tool_name':'Write','tool_input':{}})
+   self.assertEqual(x.result,'BLOCK');self.assertTrue(any(f.code=='RUN_TRANSITION_INVALID' for f in x.findings))
+   st['current_stage']='chair-review';(r/'.council'/'active_run.json').write_text(json.dumps(st),encoding='utf-8')
+   self.assertEqual(m.post_tool(r,{'tool_name':'Write','tool_input':{}}).result,'PASS')
+   log=(r/'runs'/'private'/'RUN-20260722-0001'/'transition_log.jsonl').read_text(encoding='utf-8').splitlines()
+   self.assertEqual([json.loads(x)['event'] for x in log],['start','transition'])
+ def test_pre_run_records_runtime_fingerprint(self):
+  with tempfile.TemporaryDirectory() as d:
+   r=Path(d);self.project(r);(r/'.council').mkdir(exist_ok=True);(r/'.claude'/'agents').mkdir(parents=True)
+   (r/'.claude'/'agents'/'critic.md').write_text('---\nname: critic\neffort: high\n---\nbody',encoding='utf-8')
+   old=os.environ.get('CLAUDE_CODE_EXECPATH');os.environ['CLAUDE_CODE_EXECPATH']=r'C:\x\claude-code\2.1.284\claude.exe'
+   try:
+    m.pre_run(r);fp=json.loads((r/'.council'/'runtime_fingerprint.json').read_text(encoding='utf-8'))['current']
+    self.assertEqual(fp['claude_code_version'],'2.1.284');self.assertEqual(fp['agents']['critic'],{'model':'(inherit)','effort':'high'})
+    os.environ['CLAUDE_CODE_EXECPATH']=r'C:\x\claude-code\2.1.290\claude.exe'
+    self.assertTrue(any(f.code=='CLAUDE_CODE_VERSION_CHANGED' for f in m.pre_run(r).findings))
+   finally:
+    if old is None:os.environ.pop('CLAUDE_CODE_EXECPATH',None)
+    else:os.environ['CLAUDE_CODE_EXECPATH']=old
  def test_valid_human_escalation(self):
   with tempfile.TemporaryDirectory() as d:
    r=Path(d);e={'reason_code':'HUMAN_ONLY_INFORMATION','question':'Provide internal budget','required_answer':'Budget ceiling','resume_step':'chair-review','why_conditions_cannot_substitute':'The recommendation changes at the unknown private threshold.'};self.active(r,status='WAITING_FOR_HUMAN',next_action='ESCALATE',escalation=e)

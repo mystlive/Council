@@ -21,5 +21,9 @@ runs/private/
 .council/provenance.lock
 .council/runner.lock
 .council/retention_deletion_approval.json
+.council/active_run.snapshot.json
+.council/protected_baseline.json
+.council/runtime_fingerprint.json
+.council/stop_state.json
 __pycache__/
 *.pyc

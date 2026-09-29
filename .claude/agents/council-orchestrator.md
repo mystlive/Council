@@ -34,9 +34,22 @@ tools: Read, Write, Edit, Glob, Grep, Bash, Task
 13. COMPLETED / CONDITIONAL_COMPLETION / BOUNDED_COMPLETION / DEGRADED_COMPLETION
 
 
+## 実行手順（runtime）
+
+- RUN-IDとISSUE-IDは `python hooks/id_allocator.py RUN|ISSUE --root .` で発行する（RUNは `RUN-YYYYMMDD-NNNN`）。
+- RUN開始は `python hooks/runner.py start --issue-id ... --run-id ... --output issue_intake=<path>`、工程遷移は `python hooks/runner.py apply --stage <stage> --output <key>=<path> [--increment <counter>] [--research-mode ...] [--audit-result ...] [--status ...] [--next-action ...]` で行う。runnerが遷移を検証し、`runs/private/<RUN-ID>/transition_log.jsonl` に履歴を追記する。`active_run.json` を直接編集した場合もPostToolUse Hookが同じ検証を行い、不正な遷移をBLOCKする。
+- research_mode は issue-intake 時点では仮置きとし、chair-review への遷移時に主査の選定で確定する。
+- 再批判や監査差し戻し後の補足調査のように同じ工程を2回目以降に実行した成果物は、`<stage>-02.json` のように番号付きで保存し、既存成果物を上書きしない。どの成果物がどの遷移で使われたかは transition_log の outputs_changed が記録する。
+- Subagentの返却テキストは、要約・整形・エンベロープ付与の前に `python hooks/raw_output.py --run <RUN-ID> --attempt <N> --role <role>` で改変せず保存する（SHA-256を `raw/SHA256SUMS` に記録）。成果物JSONには保存したrawファイルを input_refs として含める。
+- 内容監査の結果は `hooks/audit_store.py` の append_audit で `content_audit-NN.json` として保存し、`outputs.content_audit` は常に最新のパスを指す（pre-decisionが検査する）。
+- Subagentはフォアグラウンドで実行する（`.claude/settings.json` の `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1`）。待機中の終了でStop HookがBLOCKした場合、進展がないまま再度終了すれば許可される。
+- 実行中のClaude Codeの版とSubagentのmodel/effortは、SessionStartで `.council/runtime_fingerprint.json` に記録される。final-synthesisにはその版を記録する。
+
 ## 既定の審議上限
 
 ユーザー指定がない場合は、追加調査2回、再反証2回、監査差戻し2回を上限とする。上限到達時は停止せず、残存UNKNOWNと未解決反論を明示して `BOUNDED_COMPLETION` とする。
+
+`counters.audit_revisions` は差し戻し後の再監査の回数を数える。初回のcontent-auditへの遷移では加算しない（runnerが検査する）。
 
 ## 自己点検指標
 

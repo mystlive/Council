@@ -59,6 +59,20 @@ REQUIRED_FIELDS = (
     "errors",
 )
 LIST_FIELDS = ("input_refs", "output_refs", "claims", "unknowns", "warnings", "errors")
+# Role outputs required by ROLE_RULES.md (keyed by the artifact's skill). Reported as warnings until
+# every Subagent emits them; promote to FAIL once RUN artifacts consistently carry these fields.
+STAGE_FIELDS = {
+    "chair-review": ("issue_summary", "scope", "assumptions", "research_mode", "escalation_candidate",
+                     "research_questions", "draft_answer"),
+    "web-research": ("findings", "source_records", "verified_facts", "conflicting_evidence", "freshness_notes"),
+    "devil-advocate": ("objections", "challenged_assumptions", "missing_evidence", "alternatives", "worst_cases",
+                       "residual_risks"),
+    "secretary": ("minutes", "agreements", "disagreements", "decision_candidates", "human_decision_required",
+                  "recommendation_candidates", "decision_reversal_conditions"),
+    "content-audit": ("result",),
+    "final-synthesis": ("primary_recommendation", "adoption_conditions", "conditional_alternatives",
+                        "not_recommended", "residual_risks", "decision_reversal_conditions", "confidence"),
+}
 
 
 @dataclass(frozen=True)
@@ -142,3 +156,12 @@ def validate_artifact(
             [] if isinstance(value.get(field), list) else [ArtifactIssue("FIELD_INVALID", f"{field} must be an array.")]
         ))
     return issues
+
+
+def stage_field_warnings(value: Any) -> list[ArtifactIssue]:
+    """Report ROLE_RULES.md role outputs missing from an artifact (non-blocking)."""
+    if not isinstance(value, Mapping):
+        return []
+    required = STAGE_FIELDS.get(value.get("skill"), ())
+    return [ArtifactIssue("STAGE_FIELD_MISSING", f"{value.get('skill')} output is missing {field} (ROLE_RULES.md).")
+            for field in required if field not in value]

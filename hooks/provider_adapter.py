@@ -109,30 +109,43 @@ def _extract_codex_event(event: Mapping[str, Any]) -> str:
     return ""
 
 
+CODEX_SANDBOX_MODES = {"read-only", "workspace-write"}
+
+
 class CodexAdapter:
-    """Invoke the installed Codex CLI through its non-interactive exec mode."""
+    """Invoke the installed Codex CLI through its non-interactive exec mode.
+
+    The prompt is passed on stdin (``-``) rather than argv, so long RUN context is not limited by the
+    Windows command-line length and does not appear in process listings. The sandbox is always
+    explicit; ``danger-full-access`` is not accepted.
+    """
 
     provider_name = "codex"
 
-    def __init__(self, executable: str = "codex", *, runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run) -> None:
+    def __init__(self, executable: str = "codex", *, sandbox: str = "read-only",
+                 runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run) -> None:
+        if sandbox not in CODEX_SANDBOX_MODES:
+            raise ProviderConfigurationError(f"unsupported Codex sandbox: {sandbox}")
         self.executable = executable
+        self.sandbox = sandbox
         self._runner = runner
 
     def build_command(self, request: ProviderRequest) -> list[str]:
-        command = [self.executable, "exec", "--json", "--ephemeral"]
+        command = [self.executable, "exec", "--json", "--ephemeral", "--sandbox", self.sandbox]
         if request.output_schema is not None:
             command.extend(["--output-schema", str(request.output_schema)])
         if request.model:
             command.extend(["--model", request.model])
         if request.cwd is not None:
             command.extend(["--cd", str(request.cwd)])
-        command.append(request.prompt)
+        command.append("-")
         return command
 
     def execute(self, request: ProviderRequest) -> ProviderResponse:
         try:
             completed = self._runner(self.build_command(request), cwd=str(request.cwd) if request.cwd is not None else None,
-                                     capture_output=True, text=True, timeout=request.timeout_sec, check=False)
+                                     input=request.prompt, capture_output=True, text=True,
+                                     timeout=request.timeout_sec, check=False)
         except (OSError, subprocess.SubprocessError) as exc:
             raise AdapterError(f"Codex invocation failed: {exc.__class__.__name__}") from exc
         if completed.returncode != 0:
@@ -162,7 +175,12 @@ class CodexAdapter:
 
 
 class OrcaRouterAdapter:
-    """Call OrcaRouter's OpenAI-compatible chat completions endpoint."""
+    """Call OrcaRouter's OpenAI-compatible chat completions endpoint.
+
+    Frozen (ISSUE-2026-0003, HD-6): kept for compatibility but not extended. The operator entity and
+    privacy policy could not be confirmed, request metadata is retained for 13 months, and upstream
+    provider terms apply on top.
+    """
 
     provider_name = "orcarouter"
 

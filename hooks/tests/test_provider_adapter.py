@@ -30,9 +30,24 @@ class TestCodexAdapter(unittest.TestCase):
     def test_builds_noninteractive_command(self):
         adapter = CodexAdapter(executable="codex-test")
         command = adapter.build_command(request(output_schema="schema.json"))
-        self.assertEqual(command[:4], ["codex-test", "exec", "--json", "--ephemeral"])
+        self.assertEqual(command[:6], ["codex-test", "exec", "--json", "--ephemeral", "--sandbox", "read-only"])
         self.assertIn("--output-schema", command)
-        self.assertEqual(command[-1], '{"status":"COMPLETED"}')
+        self.assertEqual(command[-1], "-")
+        self.assertNotIn('{"status":"COMPLETED"}', command)
+
+    def test_prompt_is_sent_on_stdin(self):
+        seen = {}
+
+        def fake_run(command, **kwargs):
+            seen.update(kwargs)
+            return subprocess.CompletedProcess(command, 0, '{"type":"final","text":"{}"}\n', "")
+
+        CodexAdapter(runner=fake_run).execute(request(prompt='{"long":"context"}'))
+        self.assertEqual(seen["input"], '{"long":"context"}')
+
+    def test_full_access_sandbox_is_rejected(self):
+        with self.assertRaises(ProviderConfigurationError):
+            CodexAdapter(sandbox="danger-full-access")
 
     def test_parses_final_jsonl_event(self):
         completed = subprocess.CompletedProcess(

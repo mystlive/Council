@@ -86,8 +86,13 @@ Councilの中心は、「複数AIを会話させること」ではなく、「�
 
 実行基盤硬化は進行中です。
 
-- Codex CLIとOrcaRouterをProvider Adapterとして利用できる
+- Codex CLIをProvider Adapterとして利用できる（プロンプトはstdin渡し、sandboxは明示指定。OrcaRouter Adapterは凍結）
 - RUN状態遷移、予算、成果物Envelopeを決定論的に検査する
+- 工程遷移は `hooks/runner.py start|apply|release` で適用し、`runs/private/<RUN-ID>/transition_log.jsonl` に履歴を残す。`active_run.json` の直接編集もPostToolUse Hookが同じ規則で検査する
+- Write/Edit系に加えてBashとPowerShellのコマンドを検査し、保護ファイルはセッション開始時のハッシュと照合する（ツールに依存しない改変検知）
+- RUN実行中のStopはBLOCKするが、進展のない再停止は許可し、バックグラウンド待機での無限BLOCKを避ける
+- 実行中のClaude Codeの版と各Subagentのmodel/effortをセッションごとに記録する
+- Subagentの返却テキストを改変せず保存し、SHA-256を記録できる（`hooks/raw_output.py`）
 - 公開マニフェストと非公開マニフェストを分離し、相互ハッシュを保持する
 - 正式記録は期限付きの人間承認を要求し、差分と元ファイルハッシュを検査する
 - 出典スナップショットをSHA-256で固定し、CLAIMとSOURCEを対応付ける
