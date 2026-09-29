@@ -38,7 +38,7 @@ Claude Code上で、自律熟議評議会の最小PoCを実案件に適用し、
 
 - ISSUE-2026-0001について、final_synthesis（`runs/private/RUN-20260725-0001/attempt-01/final_synthesis.md`）を踏まえた人間の正式採否。
 - ISSUE-2026-0002は低コスト2施策（DEC-2026-0001）を採用済み。残る論点（独立Subagent新設の要否）は、試験運用件数N（目安3〜5件）の確定と、その件数分のRUN実績蓄積を待って再評価する。
-- ISSUE-2026-0003の実装に伴う人間の作業: (1) `OLLAMA_HOST`（User環境変数、全インターフェース待受け）の是正（AI提案HD-1。OSのセキュリティ設定のためAIは変更していない）、(2) 単体CLI（`~/.local/bin/claude.exe` 2.1.263）の更新（正式な実行経路はデスクトップ内蔵版 2.1.284）。HOOKS.md（保護ファイル）は2026-09-29にユーザー指示に基づく1回限りのmaintenance approvalで同期済み（`.council/maintenance_log.json`）。実装はブランチ `feat/council-p0-hardening` でコミットし main へマージ済み。
+- ISSUE-2026-0003の実装に伴う人間の作業: (1) `OLLAMA_HOST`の是正は2026-09-29に人間が実施済み（User環境変数を削除し、Ollamaは127.0.0.1:11434のみで待受けることを確認）、(2) 単体CLI（`~/.local/bin/claude.exe` 2.1.263）は2026-09-29の人間の判断で更新を見送り（正式な実行経路はデスクトップ内蔵版 2.1.284 で、単体CLIを使うターミナル実行や `claude -p` 経路を使う時点で更新する。2.1.263 は Opus 5.5 / Sonnet 5.5 の版要件を満たさない）。HOOKS.md（保護ファイル）は2026-09-29にユーザー指示に基づく1回限りのmaintenance approvalで同期済み（`.council/maintenance_log.json`）。実装はブランチ `feat/council-p0-hardening` でコミットし main へマージ済み。
 - 実行経路: 評議会はClaude Desktop内蔵のClaude Codeで実行する。版とSubagentのmodel/effortはSessionStartで `.council/runtime_fingerprint.json` に記録される。
 
 採否確定後のみ`approved-memory-update`でDECISIONS.md/PENDING.md/REJECTED.mdへ反映する（ISSUE-2026-0002については既に一部反映済み: DEC-2026-0001）。
